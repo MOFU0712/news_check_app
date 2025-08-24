@@ -1,0 +1,10 @@
+# Webスクレイピング用の追加依存関係
+aiohttp==3.9.1
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# テスト用（すでにインストール済みの場合はスキップ）
+# asyncio (Python標準ライブラリ)
+# re (Python標準ライブラリ)
+# time (Python標準ライブラリ)
+# urllib.parse (Python標準ライブラリ)
