@@ -13,7 +13,7 @@ fi
 echo "📋 現在実装済みの機能:"
 echo "✅ Phase 1: 基盤構築 (認証システム・基本UI)"
 echo "✅ Phase 2: 記事管理機能 (CRUD・検索・お気に入り)"
-echo "🔄 データベース: SQLite (開発用)"
+echo "🔄 データベース: PostgreSQL"
 echo ""
 
 echo "🚀 デモ環境を起動しています..."

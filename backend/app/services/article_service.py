@@ -4,7 +4,9 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, and_, desc, text
 from fastapi import HTTPException, status
+import pytz
 from app.models.user import User
+from app.core.config import settings
 from app.models.article import Article, UserFavorite
 from app.schemas.article import ArticleCreate, ArticleUpdate, ArticleSearchRequest
 
@@ -267,17 +269,19 @@ class ArticleService:
         """記事統計情報を取得"""
         total_articles = db.query(Article).count()
         
-        # 今月追加された記事数（SQLite対応）
+        # 今月追加された記事数
         from datetime import datetime, timezone
         import calendar
         
-        now = datetime.now(timezone.utc)
-        current_month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+        # 設定されたタイムゾーンで現在時刻を取得
+        tz = pytz.timezone(settings.TIMEZONE)
+        now = datetime.now(tz)
+        current_month_start = datetime(now.year, now.month, 1, tzinfo=tz)
         monthly_articles = db.query(Article).filter(
             Article.scraped_date >= current_month_start
         ).count()
         
-        # 人気のタグ（SQLite対応の簡易版）
+        # 人気のタグ
         articles_with_tags = db.query(Article).filter(Article.tags.isnot(None)).all()
         tag_counts = {}
         for article in articles_with_tags:

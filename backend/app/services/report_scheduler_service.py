@@ -4,8 +4,10 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timezone, time, timedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+import pytz
 
 from app.core.background_tasks import task_manager
+from app.core.config import settings
 from app.services.report_service import ReportService
 from app.services.email_service import get_email_service
 from app.models.user import User
@@ -54,7 +56,9 @@ class ReportSchedulerService:
         
         while self.is_running:
             try:
-                current_time = datetime.now(timezone.utc)
+                # 設定されたタイムゾーンで現在時刻を取得
+                tz = pytz.timezone(settings.TIMEZONE)
+                current_time = datetime.now(tz)
                 
                 # データベースから実行すべきスケジュールを取得
                 from app.db.database import SessionLocal

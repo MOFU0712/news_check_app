@@ -14,10 +14,9 @@ class Article(Base):
     source = Column(String(200))
     published_date = Column(DateTime(timezone=True))
     scraped_date = Column(DateTime(timezone=True), server_default=func.now())
-    tags = Column(JSON)  # Store tags as JSON array in SQLite
+    tags = Column(JSON)
     summary = Column(Text)
     created_by = Column(String(36), ForeignKey("users.id"))
-    # search_vector = Column(TSVECTOR)  # Not supported in SQLite, will use FTS instead
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     

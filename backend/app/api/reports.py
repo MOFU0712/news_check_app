@@ -615,7 +615,7 @@ async def generate_technical_summary(
                 Article.title.ilike(f"%{request.keyword}%"),
                 Article.content.ilike(f"%{request.keyword}%"),
                 Article.summary.ilike(f"%{request.keyword}%"),
-                Article.tags.op('LIKE')(f'%{request.keyword}%')  # SQLite用のJSON検索
+                Article.tags.op('LIKE')(f'%{request.keyword}%')
             )
         )
         

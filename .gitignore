@@ -7,9 +7,6 @@ backend/.env
 backend/.env.*
 
 # Database files
-*.db
-*.sqlite
-*.sqlite3
 backend/news_system.db
 backend/news_system*
 

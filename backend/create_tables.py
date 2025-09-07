@@ -15,7 +15,7 @@ def create_database():
     # テーブル作成
     Base.metadata.create_all(bind=engine)
     
-    # インデックス設定（SQLiteでも動作するもの）
+    # インデックス設定
     try:
         with engine.connect() as conn:
             # 基本的なインデックス

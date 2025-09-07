@@ -6,8 +6,10 @@ from datetime import datetime, timezone, time, timedelta
 from dataclasses import dataclass
 from sqlalchemy.orm import Session
 import threading
+import pytz
 
 from app.core.background_tasks import task_manager
+from app.core.config import settings
 from app.services.rss_service import RSSService
 from app.services.scraping_service import ScrapingService
 from app.models.user import User
@@ -78,7 +80,9 @@ class SchedulerService:
         
         while self.is_running:
             try:
-                current_time = datetime.now(timezone.utc).time()
+                # 設定されたタイムゾーンで現在時刻を取得
+                tz = pytz.timezone(settings.TIMEZONE)
+                current_time = datetime.now(tz).time()
                 
                 # 実行すべきスケジュールをチェック
                 schedules_to_run = []
@@ -123,7 +127,7 @@ class SchedulerService:
                 self._rss_scraping_task,
                 user_id,
                 config,
-                task_id=f"rss_scraping_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M')}",
+                task_id=f"rss_scraping_{user_id}_{datetime.now(pytz.timezone(settings.TIMEZONE)).strftime('%Y%m%d_%H%M')}",
                 total=100,  # 仮の値、実際の処理で更新される
                 message=f"RSS自動スクレイピング開始: {config.rss_file_path}"
             )
@@ -166,7 +170,7 @@ class SchedulerService:
                         include_arxiv=True,
                         arxiv_categories=config.arxiv_categories,
                         arxiv_max_results=config.arxiv_max_results,
-                        target_date=datetime.now(timezone.utc),
+                        target_date=datetime.now(pytz.timezone(settings.TIMEZONE)),
                         progress_callback=rss_progress_callback
                     )
                     

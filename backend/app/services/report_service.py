@@ -8,8 +8,10 @@ import io
 import uuid
 import json
 from collections import defaultdict, Counter
+import pytz
 
 from app.models.article import Article
+from app.core.config import settings
 from app.models.user import User
 from app.models.saved_report import SavedReport
 from app.models.prompt import PromptTemplate
@@ -351,10 +353,10 @@ class ReportService:
         
         # デフォルトで過去30日間
         if not start_dt:
-            start_dt = datetime.now(timezone.utc) - timedelta(days=30)
+            start_dt = datetime.now(pytz.timezone(settings.TIMEZONE)) - timedelta(days=30)
             logger.info(f"Using default start_dt: {start_dt}")
         if not end_dt:
-            end_dt = datetime.now(timezone.utc)
+            end_dt = datetime.now(pytz.timezone(settings.TIMEZONE))
             logger.info(f"Using default end_dt: {end_dt}")
         
         logger.info(f"Final date range for query: {start_dt} to {end_dt}")
@@ -536,7 +538,7 @@ class ReportService:
         user: Optional[User] = None
     ) -> Dict[str, Any]:
         """分析概要を取得（要約文含む）"""
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(pytz.timezone(settings.TIMEZONE))
         start_date = end_date - timedelta(days=days)
         
         # 基本統計
@@ -622,7 +624,7 @@ class ReportService:
         user: Optional[User] = None
     ) -> Dict[str, Any]:
         """タグトレンドを取得"""
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(pytz.timezone(settings.TIMEZONE))
         start_date = end_date - timedelta(days=days)
         
         articles = self.db.query(Article).filter(
@@ -681,7 +683,7 @@ class ReportService:
         user: Optional[User] = None
     ) -> Dict[str, Any]:
         """ソーストレンドを取得"""
-        end_date = datetime.now(timezone.utc)
+        end_date = datetime.now(pytz.timezone(settings.TIMEZONE))
         start_date = end_date - timedelta(days=days)
         
         # ソース別日別統計
@@ -831,7 +833,7 @@ class ReportService:
                         'title': title,
                         'report_context': report_context,
                         'report_type': report_type,
-                        'datetime': datetime.now(timezone.utc).strftime('%Y年%m月%d日 %H:%M'),
+                        'datetime': datetime.now(pytz.timezone(settings.TIMEZONE)).strftime('%Y年%m月%d日 %H:%M'),
                         'summary': summary,
                         'content': report_context,
                         'data': str(report_data),
@@ -1315,7 +1317,7 @@ Markdown形式で出力してください。
 {summary}
 
 ---
-*生成日時: {datetime.now(timezone.utc).strftime('%Y年%m月%d日 %H:%M')}*
+*生成日時: {datetime.now(pytz.timezone(settings.TIMEZONE)).strftime('%Y年%m月%d日 %H:%M')}*
 """
         
         return report_content
@@ -1333,7 +1335,7 @@ Markdown形式で出力してください。
     ) -> SavedReport:
         """レポートをデータベースに保存"""
         
-        now = datetime.now(timezone.utc)
+        now = datetime.now(pytz.timezone(settings.TIMEZONE))
         saved_report = SavedReport(
             title=title,
             report_type=report_type,
@@ -1400,7 +1402,7 @@ Markdown形式で出力してください。
             if field in allowed_fields and hasattr(report, field):
                 setattr(report, field, value)
         
-        report.updated_at = datetime.now(timezone.utc)
+        report.updated_at = datetime.now(pytz.timezone(settings.TIMEZONE))
         self.db.commit()
         self.db.refresh(report)
         
@@ -1446,7 +1448,7 @@ Markdown形式で出力してください。
                     Article.title.ilike(f"%{keyword}%"),
                     Article.content.ilike(f"%{keyword}%"),
                     Article.summary.ilike(f"%{keyword}%"),
-                    Article.tags.op('LIKE')(f'%{keyword}%')  # SQLite用のJSON検索
+                    Article.tags.op('LIKE')(f'%{keyword}%')
                 )
             )
             
