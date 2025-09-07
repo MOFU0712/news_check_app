@@ -3,6 +3,9 @@ from .article import Article, UserFavorite
 from .scraping_job import ScrapingJob
 from .prompt import PromptTemplate
 from .saved_report import SavedReport
+from .report_schedule import ReportScheduleConfig
+from .rss_schedule import RSSSchedule
+from .usage_log import UsageLog
 
 __all__ = [
     "User",
@@ -10,5 +13,8 @@ __all__ = [
     "UserFavorite", 
     "ScrapingJob",
     "PromptTemplate",
-    "SavedReport"
+    "SavedReport",
+    "ReportScheduleConfig",
+    "RSSSchedule",
+    "UsageLog"
 ]

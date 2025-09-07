@@ -31,7 +31,7 @@ class ArticleService:
             published_date=article_data.published_date,
             tags=article_data.tags or [],
             summary=article_data.summary,
-            created_by=user.id
+            created_by=str(user.id)
         )
         
         db.add(db_article)

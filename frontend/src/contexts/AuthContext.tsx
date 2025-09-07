@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (data: LoginData) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => void
+  refreshUser: () => Promise<void>
   isAuthenticated: boolean
   isAdmin: boolean
 }
@@ -93,6 +94,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     toast.success('ログアウトしました')
   }
 
+  const refreshUser = async () => {
+    try {
+      if (token) {
+        const user = await authApi.getMe()
+        setUser(user)
+        localStorage.setItem('user', JSON.stringify(user))
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error)
+      // Token might be invalid, logout
+      logout()
+    }
+  }
+
   const value = {
     user,
     token,
@@ -100,6 +115,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
+    refreshUser,
     isAuthenticated: !!user,
     isAdmin: user?.is_admin === true,
   }

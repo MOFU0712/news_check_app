@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, and_, or_
 import csv
 import io
+import uuid
+import json
 from collections import defaultdict, Counter
 
 from app.models.article import Article
@@ -14,6 +16,21 @@ from app.models.prompt import PromptTemplate
 from app.services.llm_service import llm_service
 
 logger = logging.getLogger(__name__)
+
+
+def make_json_serializable(obj):
+    """オブジェクトをJSON serializableに変換"""
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: make_json_serializable(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [make_json_serializable(item) for item in obj]
+    else:
+        return obj
+
 
 class ReportService:
     """レポート生成・分析サービス"""
@@ -90,9 +107,9 @@ class ReportService:
         
         # フィルター適用
         if start_dt:
-            query = query.filter(Article.scraped_date >= start_dt)
+            query = query.filter(Article.published_date >= start_dt)
         if end_dt:
-            query = query.filter(Article.scraped_date <= end_dt)
+            query = query.filter(Article.published_date <= end_dt)
         if tags:
             for tag in tags:
                 query = query.filter(Article.tags.any(tag))
@@ -118,7 +135,7 @@ class ReportService:
                 source_counter[article.source] += 1
             
             # 日別統計
-            date_str = article.scraped_date.strftime('%Y-%m-%d')
+            date_str = article.published_date.strftime('%Y-%m-%d')
             daily_counts[date_str] += 1
         
         # 人気のタグ・ソース（上位10件）
@@ -134,7 +151,7 @@ class ReportService:
                     "summary": article.summary,
                     "url": article.url,
                     "source": article.source,
-                    "scraped_date": article.scraped_date.isoformat(),
+                    "published_date": article.published_date.isoformat(),
                     "tags": article.tags or []
                 })
         
@@ -179,9 +196,9 @@ class ReportService:
         
         # フィルター適用
         if start_dt:
-            query = query.filter(Article.scraped_date >= start_dt)
+            query = query.filter(Article.published_date >= start_dt)
         if end_dt:
-            query = query.filter(Article.scraped_date <= end_dt)
+            query = query.filter(Article.published_date <= end_dt)
         if sources:
             query = query.filter(Article.source.in_(sources))
         
@@ -208,7 +225,7 @@ class ReportService:
                             tag_analysis[tag]["recent_articles"].append({
                                 "title": article.title,
                                 "url": article.url,
-                                "scraped_date": article.scraped_date.isoformat(),
+                                "published_date": article.published_date.isoformat(),
                                 "source": article.source
                             })
         
@@ -224,7 +241,7 @@ class ReportService:
                     "summary": article.summary,
                     "url": article.url,
                     "source": article.source,
-                    "scraped_date": article.scraped_date.isoformat(),
+                    "published_date": article.published_date.isoformat(),
                     "tags": article.tags or []
                 })
         
@@ -253,9 +270,9 @@ class ReportService:
         
         # フィルター適用
         if start_dt:
-            query = query.filter(Article.scraped_date >= start_dt)
+            query = query.filter(Article.published_date >= start_dt)
         if end_dt:
-            query = query.filter(Article.scraped_date <= end_dt)
+            query = query.filter(Article.published_date <= end_dt)
         if sources:
             query = query.filter(Article.source.in_(sources))
         
@@ -284,11 +301,11 @@ class ReportService:
                     source_analysis[source]["recent_articles"].append({
                         "title": article.title,
                         "url": article.url,
-                        "scraped_date": article.scraped_date.isoformat()
+                        "published_date": article.published_date.isoformat()
                     })
                 
                 # 日別統計
-                date_str = article.scraped_date.strftime('%Y-%m-%d')
+                date_str = article.published_date.strftime('%Y-%m-%d')
                 source_analysis[source]["daily_counts"][date_str] += 1
         
         # 結果をソート
@@ -303,7 +320,7 @@ class ReportService:
                     "summary": article.summary,
                     "url": article.url,
                     "source": article.source,
-                    "scraped_date": article.scraped_date.isoformat(),
+                    "published_date": article.published_date.isoformat(),
                     "tags": article.tags or []
                 })
         
@@ -351,8 +368,8 @@ class ReportService:
         
         # 日付フィルタを適用
         query = base_query.filter(
-            Article.scraped_date >= start_dt,
-            Article.scraped_date <= end_dt
+            Article.published_date >= start_dt,
+            Article.published_date <= end_dt
         )
         
         # 日付フィルタ後の件数をログ出力
@@ -374,14 +391,14 @@ class ReportService:
         if articles:
             logger.info("Sample articles found:")
             for i, article in enumerate(articles[:3]):
-                logger.info(f"  Article {i+1}: title='{article.title[:50]}...', scraped_date={article.scraped_date}")
+                logger.info(f"  Article {i+1}: title='{article.title[:50]}...', published_date={article.published_date}")
         else:
             logger.warning("No articles found matching the criteria!")
             
             # デバッグ: 記事の日付範囲を確認
             date_range_query = self.db.query(
-                func.min(Article.scraped_date).label('min_date'),
-                func.max(Article.scraped_date).label('max_date')
+                func.min(Article.published_date).label('min_date'),
+                func.max(Article.published_date).label('max_date')
             ).first()
             if date_range_query:
                 logger.info(f"Available article date range: {date_range_query.min_date} to {date_range_query.max_date}")
@@ -394,7 +411,7 @@ class ReportService:
         })
         
         for article in articles:
-            date_str = article.scraped_date.strftime('%Y-%m-%d')
+            date_str = article.published_date.strftime('%Y-%m-%d')
             daily_trends[date_str]["count"] += 1
             
             if article.tags:
@@ -407,7 +424,7 @@ class ReportService:
         # 週別集計
         weekly_trends = defaultdict(int)
         for article in articles:
-            week_start = article.scraped_date - timedelta(days=article.scraped_date.weekday())
+            week_start = article.published_date - timedelta(days=article.published_date.weekday())
             week_key = week_start.strftime('%Y-%m-%d')
             weekly_trends[week_key] += 1
         
@@ -420,7 +437,7 @@ class ReportService:
                     "summary": article.summary,
                     "url": article.url,
                     "source": article.source,
-                    "scraped_date": article.scraped_date.isoformat(),
+                    "published_date": article.published_date.isoformat(),
                     "tags": article.tags or []
                 })
         
@@ -472,13 +489,13 @@ class ReportService:
         
         if start_date:
             start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-            db_query = db_query.filter(Article.scraped_date >= start_dt)
+            db_query = db_query.filter(Article.published_date >= start_dt)
         
         if end_date:
             end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-            db_query = db_query.filter(Article.scraped_date <= end_dt)
+            db_query = db_query.filter(Article.published_date <= end_dt)
         
-        articles = db_query.order_by(desc(Article.scraped_date)).all()
+        articles = db_query.order_by(desc(Article.published_date)).all()
         
         # CSV作成
         output = io.StringIO()
@@ -507,7 +524,7 @@ class ReportService:
                 article.summary or '',
                 ', '.join(article.tags) if article.tags else '',
                 article.published_date.isoformat() if article.published_date else '',
-                article.scraped_date.isoformat() if article.scraped_date else '',
+                article.published_date.isoformat() if article.published_date else '',
                 str(article.created_by) if article.created_by else ''
             ])
         
@@ -525,13 +542,13 @@ class ReportService:
         # 基本統計
         total_articles = self.db.query(Article).count()
         period_articles = self.db.query(Article).filter(
-            Article.scraped_date >= start_date
+            Article.published_date >= start_date
         ).count()
         
         # 期間内の記事を取得（要約文含む）
         recent_articles = self.db.query(Article).filter(
-            Article.scraped_date >= start_date
-        ).order_by(Article.scraped_date.desc()).all()
+            Article.published_date >= start_date
+        ).order_by(Article.published_date.desc()).all()
         
         # 記事要約リスト（上位記事）
         article_summaries = []
@@ -542,23 +559,23 @@ class ReportService:
                     "summary": article.summary,
                     "url": article.url,
                     "source": article.source,
-                    "scraped_date": article.scraped_date.isoformat(),
+                    "published_date": article.published_date.isoformat(),
                     "tags": article.tags or []
                 })
         
         # 日別記事数
         daily_query = self.db.query(
-            func.date(Article.scraped_date).label('date'),
+            func.date(Article.published_date).label('date'),
             func.count().label('count')
         ).filter(
-            Article.scraped_date >= start_date
-        ).group_by(func.date(Article.scraped_date))
+            Article.published_date >= start_date
+        ).group_by(func.date(Article.published_date))
         
         daily_data = {str(row.date): row.count for row in daily_query.all()}
         
         # トップタグ
         articles_with_tags = self.db.query(Article).filter(
-            Article.scraped_date >= start_date,
+            Article.published_date >= start_date,
             Article.tags.isnot(None)
         ).all()
         
@@ -575,7 +592,7 @@ class ReportService:
             Article.source,
             func.count().label('count')
         ).filter(
-            Article.scraped_date >= start_date,
+            Article.published_date >= start_date,
             Article.source.isnot(None)
         ).group_by(Article.source).order_by(desc('count')).limit(10)
         
@@ -609,7 +626,7 @@ class ReportService:
         start_date = end_date - timedelta(days=days)
         
         articles = self.db.query(Article).filter(
-            Article.scraped_date >= start_date,
+            Article.published_date >= start_date,
             Article.tags.isnot(None)
         ).all()
         
@@ -617,7 +634,7 @@ class ReportService:
         daily_tag_counts = defaultdict(lambda: Counter())
         
         for article in articles:
-            date_str = article.scraped_date.strftime('%Y-%m-%d')
+            date_str = article.published_date.strftime('%Y-%m-%d')
             if article.tags:
                 for tag in article.tags:
                     daily_tag_counts[date_str][tag] += 1
@@ -669,14 +686,14 @@ class ReportService:
         
         # ソース別日別統計
         daily_query = self.db.query(
-            func.date(Article.scraped_date).label('date'),
+            func.date(Article.published_date).label('date'),
             Article.source,
             func.count().label('count')
         ).filter(
-            Article.scraped_date >= start_date,
+            Article.published_date >= start_date,
             Article.source.isnot(None)
         ).group_by(
-            func.date(Article.scraped_date),
+            func.date(Article.published_date),
             Article.source
         )
         
@@ -729,9 +746,13 @@ class ReportService:
     ) -> str:
         """分析データからブログ記事形式のレポートを生成"""
         
+        print(f"=== LLM service is_available: {llm_service.is_available()} ===")
         if not llm_service.is_available():
             logger.warning("LLM service not available. Generating basic report.")
+            logger.info(f"LLM service client status: {llm_service.client}")
             return self._generate_basic_blog_report(report_type, report_data, summary, title)
+        
+        print("=== LLM service is available, proceeding with template check ===")
         
         # カスタムプロンプトテンプレートを使用するかチェック
         custom_template = None
@@ -788,6 +809,23 @@ class ReportService:
                     article_urls = [article.get('url', '') for article in article_summaries]
                     article_titles = [article.get('title', '') for article in article_summaries]
                     
+                    # 生のニュース記事データを作成（構造化されていないシンプルな形式）
+                    raw_articles = []
+                    for i, article in enumerate(article_summaries, 1):
+                        raw_article = f"ニュース{i}: {article.get('title', 'タイトルなし')}\n"
+                        raw_article += f"要約: {article.get('summary', '要約なし')}\n"
+                        raw_article += f"URL: {article.get('url', 'URLなし')}\n"
+                        if article.get('tags'):
+                            raw_article += f"タグ: {', '.join(article.get('tags', []))}\n"
+                        raw_articles.append(raw_article)
+                    
+                    articles_text = '\n'.join(raw_articles)
+                    
+                    # 日付情報を取得
+                    period_info = report_data.get("data", {}).get('period', {})
+                    start_date = period_info.get('start', '')
+                    end_date = period_info.get('end', '')
+                    
                     # 使用可能な変数を定義
                     template_vars = {
                         'title': title,
@@ -797,12 +835,14 @@ class ReportService:
                         'summary': summary,
                         'content': report_context,
                         'data': str(report_data),
-                        'news_data': report_context,  # ニュースデータとしても提供
-                        'articles': report_context,   # 記事データとしても提供
-                        'news_information': report_context,  # ニュース情報としても提供
+                        'news_data': articles_text,  # 生のニュースデータ
+                        'articles': articles_text,   # 生の記事データ
+                        'news_information': articles_text,  # 生のニュース情報
                         'article_urls': '\n'.join(article_urls),  # URL一覧
                         'article_titles': '\n'.join(article_titles),  # タイトル一覧
-                        'article_count': len(article_summaries)  # 記事数
+                        'article_count': len(article_summaries),  # 記事数
+                        'start_date': start_date,  # 開始日
+                        'end_date': end_date  # 終了日
                     }
                     
                     # テンプレートの変数を安全に置換
@@ -816,20 +856,8 @@ class ReportService:
                     # 残った変数は空文字に置換（エラー回避）
                     template_text = re.sub(r'\{[^}]+\}', '', template_text)
                     
-                    # カスタムテンプレートの前にニュースデータを必ず追加
-                    news_data_prefix = f"""
-## 具体的なニュース情報が提供されています
-
-以下は指定された期間のIT・AIニュース記事です：
-
-{report_context}
-
----
-
-上記のニュース情報を基にして、以下のテンプレートに従って記事を作成してください：
-
-"""
-                    prompt = news_data_prefix + template_text
+                    # カスタムテンプレートをそのまま使用（ニュースデータの挿入はテンプレート側で制御）
+                    prompt = template_text
                     
                 except Exception as e:
                     logger.warning(f"Template formatting failed: {e}, using fallback")
@@ -846,18 +874,8 @@ class ReportService:
 上記のニュース情報を使って、タイトル「{title}」でレポートタイプ「{report_type}」の記事を作成してください。
 """
             else:
-                # システムプロンプトのみでユーザープロンプトを構築（ニュースデータ付き）
-                prompt = f"""
-## 具体的なニュース情報が提供されています
-
-以下は指定された期間のIT・AIニュース記事です：
-
-{report_context}
-
----
-
-上記のニュース情報を使って、タイトル「{title}」でレポートタイプ「{report_type}」の記事を作成してください。
-"""
+                # ユーザープロンプトテンプレートがない場合のシンプルな構成
+                prompt = f"タイトル「{title}」で{report_type}レポートを作成してください。"
             
             model_name = custom_template.model_name
             max_tokens = custom_template.max_tokens
@@ -910,6 +928,7 @@ Markdown形式で出力してください。
             temperature = 0.3
 
         try:
+            print("=== About to call LLM API ===")
             # Claude APIでブログ記事を生成
             messages = [{"role": "user", "content": prompt}]
             
@@ -919,6 +938,7 @@ Markdown形式で出力してください。
                 system_to_send = system_prompt
                 logger.info(f"Using custom system prompt: {system_prompt[:100]}...")
             
+            print(f"=== Calling _api_call_with_retry with model: {model_name} ===")
             response = llm_service._api_call_with_retry(
                 model=model_name,
                 messages=messages,
@@ -926,6 +946,7 @@ Markdown形式で出力してください。
                 temperature=temperature,
                 system=system_to_send
             )
+            print("=== API call completed successfully ===")
             
             blog_content = llm_service.extract_text_from_response(response)
             
@@ -972,10 +993,10 @@ Markdown形式で出力してください。
                 
                 for i, article in enumerate(summaries, 1):
                     # 日付を整形して表示
-                    scraped_date = article.get('scraped_date', '')
-                    if scraped_date:
+                    published_date = article.get('published_date', '')
+                    if published_date:
                         try:
-                            date_obj = datetime.fromisoformat(scraped_date.replace('Z', '+00:00'))
+                            date_obj = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
                             date_str = date_obj.strftime('%m月%d日')
                         except:
                             date_str = ''
@@ -1247,26 +1268,12 @@ Markdown形式で出力してください。
         return "\n".join(glossary) if glossary else "**AI**: 人工知能。コンピューターが人間のように考える技術"
     
     def _generate_smart_fallback_report(self, title: str, report_type: str, data: Dict, summary: str, template: 'PromptTemplate') -> str:
-        """その他テンプレート向けのスマートフォールバック"""
-        system_prompt = template.system_prompt or ""
-        
+        """その他テンプレート向けのスマートフォールバック"""        
         return f"""# {title}
-
-## 📋 {template.name}によるレポート
-
-{system_prompt}
-
-### 📊 分析結果
 
 {summary}
 
-### 📈 データ詳細
-
 {self._build_report_context(report_type, {"data": data}, summary)}
-
----
-
-*カスタムテンプレート「{template.name}」に基づいて生成されました*
 """
 
     def _generate_basic_blog_report(
@@ -1331,11 +1338,11 @@ Markdown形式で出力してください。
             title=title,
             report_type=report_type,
             content=content,
-            parameters=parameters or {},
-            raw_data=raw_data or {},
+            parameters=make_json_serializable(parameters or {}),
+            raw_data=make_json_serializable(raw_data or {}),
             summary=summary,
             tags=tags or [],
-            created_by=user.id if user else None,
+            created_by=str(user.id) if user else None,
             created_at=now,
             updated_at=now
         )
@@ -1350,7 +1357,7 @@ Markdown形式で出力してください。
     def get_saved_reports(
         self,
         user: Optional[User] = None,
-        limit: int = 20,
+        limit: Optional[int] = None,
         offset: int = 0
     ) -> List[SavedReport]:
         """保存されたレポート一覧を取得"""
@@ -1359,7 +1366,12 @@ Markdown形式で出力してください。
         if user:
             query = query.filter(SavedReport.created_by == user.id)
         
-        return query.order_by(SavedReport.created_at.desc()).offset(offset).limit(limit).all()
+        query = query.order_by(SavedReport.created_at.desc()).offset(offset)
+        
+        if limit is not None:
+            query = query.limit(limit)
+            
+        return query.all()
     
     def get_saved_report(self, report_id: str, user: Optional[User] = None) -> Optional[SavedReport]:
         """特定の保存されたレポートを取得"""
@@ -1443,13 +1455,13 @@ Markdown形式で出力してください。
                 start_date, end_date = date_range
                 query = query.filter(
                     and_(
-                        Article.scraped_date >= start_date,
-                        Article.scraped_date <= end_date
+                        Article.published_date >= start_date,
+                        Article.published_date <= end_date
                     )
                 )
             
             # 新しい順でソートし、制限を適用
-            articles = query.order_by(desc(Article.scraped_date)).limit(max_articles).all()
+            articles = query.order_by(desc(Article.published_date)).limit(max_articles).all()
             
             if not articles:
                 logger.warning(f"No articles found for keyword: {keyword}")
@@ -1495,7 +1507,7 @@ Markdown形式で出力してください。
             
             # タイムラインデータ
             timeline.append({
-                'date': article.scraped_date.strftime('%Y-%m-%d'),
+                'date': article.published_date.strftime('%Y-%m-%d'),
                 'title': article.title,
                 'url': article.url,
                 'source': article.source
@@ -1514,8 +1526,8 @@ Markdown形式で出力してください。
             'keyword': keyword,
             'total_articles': len(articles),
             'date_range': {
-                'start': min(a.scraped_date for a in articles).strftime('%Y-%m-%d'),
-                'end': max(a.scraped_date for a in articles).strftime('%Y-%m-%d')
+                'start': min(a.published_date for a in articles).strftime('%Y-%m-%d'),
+                'end': max(a.published_date for a in articles).strftime('%Y-%m-%d')
             },
             'technologies': sorted(list(technologies)),
             'concepts': sorted(list(concepts)),
@@ -1527,7 +1539,7 @@ Markdown形式で出力してください。
                     'url': a.url,
                     'summary': a.summary,
                     'source': a.source,
-                    'date': a.scraped_date.strftime('%Y-%m-%d'),
+                    'date': a.published_date.strftime('%Y-%m-%d'),
                     'tags': a.tags or []
                 }
                 for a in articles

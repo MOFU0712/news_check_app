@@ -205,7 +205,7 @@ class WebScraper:
             content = self._extract_main_content(soup)
             
             # 自動タグ生成
-            auto_tags = self._generate_auto_tags(title, content, keywords)
+            auto_tags = self._generate_auto_tags(title, content, keywords, url)
             
             return ScrapedContent(
                 url=url,
@@ -363,12 +363,19 @@ class WebScraper:
         
         return text
     
-    def _generate_auto_tags(self, title: str, content: str, keywords: List[str]) -> List[str]:
+    def _generate_auto_tags(self, title: str, content: str, keywords: List[str], url: str = "") -> List[str]:
         """自動タグ生成"""
         auto_tags = set()
         
         # 既存キーワードをタグに追加
         auto_tags.update(keywords)
+        
+        # arXiv論文の検出
+        url_lower = url.lower()
+        if 'arxiv.org' in url_lower or '/abs/' in url_lower:
+            auto_tags.add('論文')
+            auto_tags.add('arXiv')
+            logger.debug(f"arXiv論文を検出: {url}")
         
         # 技術用語の検出
         tech_terms = {
@@ -398,7 +405,12 @@ class WebScraper:
             'redis': 'Redis',
             'ai': '人工知能',
             'machine learning': '機械学習',
-            'deep learning': '深層学習'
+            'deep learning': '深層学習',
+            'neural network': 'ニューラルネットワーク',
+            'transformer': 'Transformer',
+            'llm': 'LLM',
+            'gpt': 'GPT',
+            'bert': 'BERT'
         }
         
         text_to_analyze = f"{title or ''} {content or ''}".lower()
@@ -406,6 +418,12 @@ class WebScraper:
         for term, tag in tech_terms.items():
             if term in text_to_analyze:
                 auto_tags.add(tag)
+        
+        # 論文関連キーワードの検出（URLベース検出を補完）
+        paper_terms = ['paper', 'research', 'study', 'algorithm', 'method', 'approach', 
+                      '論文', '研究', 'アルゴリズム', 'モデル', '手法']
+        if any(word in text_to_analyze for word in paper_terms) and 'arxiv' in text_to_analyze:
+            auto_tags.add('論文')
         
         # カテゴリ推定
         if any(word in text_to_analyze for word in ['frontend', 'フロントエンド', 'ui', 'ux']):

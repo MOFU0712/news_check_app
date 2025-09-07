@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { URLInput } from '@/components/scraping/URLInput';
 import { ScrapingProgress } from '@/components/scraping/ScrapingProgress';
 import { ScrapingHistory } from '@/components/scraping/ScrapingHistory';
+import { AutoScheduleSettings } from '@/components/scraping/AutoScheduleSettings.tsx';
+import { RSSFeedEditor } from '@/components/scraping/RSSFeedEditor.tsx';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -191,8 +193,10 @@ export const ScrapingPage: React.FC = () => {
 
       {/* メインコンテンツ */}
       <Tabs defaultValue="scraping" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="scraping">スクレイピング実行</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="scraping">URL スクレイピング</TabsTrigger>
+          <TabsTrigger value="rss">RSS 設定</TabsTrigger>
+          <TabsTrigger value="schedule">自動スケジュール</TabsTrigger>
           <TabsTrigger value="history">履歴・管理</TabsTrigger>
         </TabsList>
 
@@ -214,6 +218,16 @@ export const ScrapingPage: React.FC = () => {
               onJobCancel={handleJobCancel}
             />
           )}
+        </TabsContent>
+
+        {/* RSS設定タブ */}
+        <TabsContent value="rss" className="space-y-6">
+          <RSSFeedEditor />
+        </TabsContent>
+
+        {/* 自動スケジュールタブ */}
+        <TabsContent value="schedule" className="space-y-6">
+          <AutoScheduleSettings />
         </TabsContent>
 
         {/* 履歴・管理タブ */}

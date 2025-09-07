@@ -9,12 +9,12 @@ class Settings(BaseSettings):
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     
-    # Database (SQLite)
-    POSTGRES_SERVER: str = "sqlite"
+    # Database (PostgreSQL)
+    POSTGRES_SERVER: str = "localhost"
     POSTGRES_PORT: str = "5432"
-    POSTGRES_USER: str = "postgres"
+    POSTGRES_USER: str = "tsutsuikana"
     POSTGRES_PASSWORD: str = ""
-    POSTGRES_DB: str = "./news_system.db"
+    POSTGRES_DB: str = "news_system_migration"
     
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
@@ -75,6 +75,18 @@ class Settings(BaseSettings):
     # Admin user
     FIRST_SUPERUSER_EMAIL: str = "kana.011235813213455@gmail.com"
     FIRST_SUPERUSER_PASSWORD: str = "kagishippo0712"
+    
+    # Email settings
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    FROM_EMAIL: Optional[str] = None
+    FROM_NAME: str = "News Check App"
+    
+    # Email templates
+    ENABLE_EMAIL_REPORTS: bool = False
     
     # System settings (can be dynamically updated)
     DEFAULT_SCRAPING_DELAY: float = 2.0  # より長い間隔で負荷軽減

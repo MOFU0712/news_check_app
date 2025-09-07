@@ -12,12 +12,13 @@ import {
   CheckCircle2, 
   XCircle, 
   Clock, 
-  Copy,
   Trash2,
   Info,
-  Play
+  Play,
+  Brain
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ParsedUrls {
   valid_urls: string[];
@@ -49,16 +50,59 @@ export const URLInput: React.FC<URLInputProps> = ({
   parsedUrls,
   isLoading
 }) => {
+  const { token } = useAuth();
   const [urlsText, setUrlsText] = useState('');
   const [autoGenerateTags, setAutoGenerateTags] = useState(true);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
+  const [isRssFetching, setIsRssFetching] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // URL解析処理
   const handleParse = useCallback(async () => {
     await onUrlParse(urlsText);
   }, [urlsText, onUrlParse]);
+
+  // RSS+arXiv取得処理
+  const handleFetchRssArxiv = useCallback(async () => {
+    setIsRssFetching(true);
+    
+    try {
+      const response = await fetch('/api/rss/feeds/from-file', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          rss_file_path: '/Users/tsutsuikana/Desktop/coding_workspace/news_check_app/backend/rss_feeds.txt',
+          include_arxiv: true,
+          arxiv_categories: ['cs.AI', 'cs.LG', 'cs.CV'],
+          arxiv_max_results: 50
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // 取得したURLをテキストエリアに設定
+      const urls = data.sample_urls || [];
+      if (urls.length > 0) {
+        setUrlsText(urls.join('\n'));
+        toast.success(`${urls.length}件のURLを取得しました`);
+      } else {
+        toast.warning('新しいURLが見つかりませんでした');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'RSS+arXiv取得に失敗しました';
+      toast.error(errorMessage);
+    } finally {
+      setIsRssFetching(false);
+    }
+  }, [token]);
 
   // スクレイピング開始処理
   const handleStart = useCallback(async () => {
@@ -70,37 +114,11 @@ export const URLInput: React.FC<URLInputProps> = ({
     }
   }, [urlsText, autoGenerateTags, skipDuplicates, onStartScraping]);
 
-  // サンプルURLの挿入
-  const insertSampleUrls = useCallback(() => {
-    const samples = [
-      'https://example.com/article1',
-      '- https://zenn.dev/sample-article',
-      '- https://qiita.com/example-post',
-      'https://dev.to/sample-tutorial',
-    ].join('\n');
-    
-    setUrlsText(samples);
-    toast.info('サンプルURLを挿入しました');
-  }, []);
-
   // テキストエリアのクリア
   const clearTextArea = useCallback(() => {
     setUrlsText('');
     setSelectedUrls(new Set());
     toast.info('入力をクリアしました');
-  }, []);
-
-  // クリップボードから貼り付け
-  const pasteFromClipboard = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        setUrlsText(prev => prev + (prev ? '\n' : '') + text);
-        toast.success('クリップボードから貼り付けました');
-      }
-    } catch (err) {
-      toast.error('クリップボードの読み取りに失敗しました');
-    }
   }, []);
 
   // URL選択の切り替え
@@ -149,21 +167,17 @@ export const URLInput: React.FC<URLInputProps> = ({
           {/* 操作ボタン */}
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              onClick={insertSampleUrls}
-              disabled={isLoading}
+              onClick={handleFetchRssArxiv}
+              disabled={isLoading || isRssFetching}
             >
-              サンプル挿入
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={pasteFromClipboard}
-              disabled={isLoading}
-            >
-              <Copy className="h-4 w-4 mr-1" />
-              貼り付け
+              {isRssFetching ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Brain className="h-4 w-4 mr-1" />
+              )}
+              RSS+arXiv取得
             </Button>
             <Button
               variant="outline"
@@ -187,7 +201,7 @@ export const URLInput: React.FC<URLInputProps> = ({
 • - https://example.com/article2
 • * https://example.com/article3
 
-最大100件まで処理可能です`}
+最大1000件まで処理可能です`}
               value={urlsText}
               onChange={(e) => setUrlsText(e.target.value)}
               className="min-h-[200px] font-mono text-sm"
@@ -205,7 +219,7 @@ export const URLInput: React.FC<URLInputProps> = ({
               <Checkbox
                 id="auto-tags"
                 checked={autoGenerateTags}
-                onCheckedChange={setAutoGenerateTags}
+                onCheckedChange={(checked) => setAutoGenerateTags(checked === true)}
                 disabled={isLoading}
               />
               <label htmlFor="auto-tags" className="text-sm font-medium">
@@ -216,7 +230,7 @@ export const URLInput: React.FC<URLInputProps> = ({
               <Checkbox
                 id="skip-duplicates"
                 checked={skipDuplicates}
-                onCheckedChange={setSkipDuplicates}
+                onCheckedChange={(checked) => setSkipDuplicates(checked === true)}
                 disabled={isLoading}
               />
               <label htmlFor="skip-duplicates" className="text-sm font-medium">

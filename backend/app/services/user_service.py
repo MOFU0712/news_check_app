@@ -15,17 +15,19 @@ class UserService:
         db: Session, 
         email: str, 
         password: str, 
-        is_admin: bool = False
+        is_admin: bool = False,
+        password_change_required: bool = True
     ) -> User:
         """新しいユーザーを作成"""
         hashed_password = get_password_hash(password)
         
         user = User(
-            id=uuid.uuid4(),
+            id=str(uuid.uuid4()),
             email=email,
             hashed_password=hashed_password,
             is_admin=is_admin,
             is_active=True,
+            password_change_required=password_change_required,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )

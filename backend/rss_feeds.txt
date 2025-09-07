@@ -1,0 +1,31 @@
+# ITニュース RSS フィードリスト
+# このファイルは、定期的にチェックするRSSフィードのURLを記載するサンプルです
+# '#' で始まる行はコメントとして無視されます
+# 空行も無視されます
+
+https://36kr.jp/feed/
+https://gigazine.net/news/rss_2.0/
+https://www.watch.impress.co.jp/data/rss/1.0/ipw/feed.rdf
+https://techblog.lycorp.co.jp/ja/feed/index.xml
+https://openai.com/blog/rss
+https://zenn.dev/topics/ai/feed
+http://b.hatena.ne.jp/hotentry/it.rss
+https://robotstart.info/feed
+https://www.preferred-networks.jp/ja/feed
+https://jidounten-lab.com/feed
+http://www.forest.impress.co.jp/rss.xml
+https://tech-blog.abeja.asia/feed
+https://deepmind.com/blog/feed/basic/
+https://blog.research.google/atom.xml
+https://huggingface.co/blog/feed.xml
+https://blog.langchain.dev/rss/
+https://news.mit.edu/topic/mitartificial-intelligence2-rss.xml
+https://qiita.com/omiita/feed
+https://medium.com/feed/pytorch
+https://blog.shikoan.com/feed/
+https://zenn.dev/p/turing_motors/feed
+http://bair.berkeley.edu/blog/feed.xml
+https://blog.tensorflow.org/feeds/posts/default
+https://weeklykagglenews.substack.com/feed
+http://www.currypurin.com/feed
+https://zenn.dev/p/mkj/feed

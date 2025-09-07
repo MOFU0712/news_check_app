@@ -14,6 +14,7 @@ from app.models.saved_report import SavedReport
 from app.models.article import Article
 from app.models.prompt import PromptTemplate
 from app.services.report_service import ReportService
+from app.services.usage_service import UsageService
 from sqlalchemy import or_, and_
 import logging
 
@@ -196,6 +197,14 @@ async def generate_and_save_report(
     logger.info(f"Request data: report_type={request.report_type}, title={request.title}, template_id={request.prompt_template_id}")
     logger.info(f"Current user ID type: {type(current_user.id)}")
     
+    # 使用制限をチェック
+    usage_check = UsageService.check_usage_limit(db, current_user.id, 'report_generation', current_user)
+    if not usage_check['can_use']:
+        raise HTTPException(
+            status_code=429, 
+            detail=f"レポート生成の制限に達しました。{usage_check['message']} (リセット時刻: {usage_check['reset_time']})"
+        )
+    
     try:
         report_service = ReportService(db)
         
@@ -239,6 +248,19 @@ async def generate_and_save_report(
             summary=report_data["summary"],
             tags=request.tags,
             user=current_user
+        )
+        
+        # 使用ログを記録
+        UsageService.log_usage(
+            db=db,
+            user_id=current_user.id,
+            action_type='report_generation',
+            resource_used=f"report_type:{request.report_type}",
+            additional_data={
+                'title': request.title,
+                'report_type': request.report_type,
+                'saved_report_id': str(saved_report.id)
+            }
         )
         
         return SavedReportResponse(
@@ -292,7 +314,7 @@ async def save_report(
 
 @router.get("/saved", response_model=List[SavedReportResponse])
 async def get_saved_reports(
-    limit: int = Query(20, ge=1, le=100),
+    limit: Optional[int] = Query(None, ge=1),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -554,6 +576,14 @@ async def generate_technical_summary(
     current_user: User = Depends(get_current_user)
 ):
     """特定のキーワードの技術まとめレポートを生成"""
+    # 使用制限をチェック
+    usage_check = UsageService.check_usage_limit(db, current_user.id, 'report_generation', current_user)
+    if not usage_check['can_use']:
+        raise HTTPException(
+            status_code=429, 
+            detail=f"レポート生成の制限に達しました。{usage_check['message']} (リセット時刻: {usage_check['reset_time']})"
+        )
+    
     try:
         report_service = ReportService(db)
         
@@ -601,6 +631,19 @@ async def generate_technical_summary(
         # 新しい順でソートし、max_articles制限を適用して実際に使用された記事数を取得
         articles_count = min(query.count(), request.max_articles)
         
+        # 使用ログを記録
+        UsageService.log_usage(
+            db=db,
+            user_id=current_user.id,
+            action_type='report_generation',
+            resource_used=f"technical_summary:{request.keyword}",
+            additional_data={
+                'keyword': request.keyword,
+                'articles_count': articles_count,
+                'max_articles': request.max_articles
+            }
+        )
+        
         return TechnicalReportResponse(
             keyword=request.keyword,
             content=content,
@@ -619,6 +662,14 @@ async def generate_and_save_technical_summary(
     current_user: User = Depends(get_current_user)
 ):
     """技術まとめレポートを生成して保存"""
+    # 使用制限をチェック
+    usage_check = UsageService.check_usage_limit(db, current_user.id, 'report_generation', current_user)
+    if not usage_check['can_use']:
+        raise HTTPException(
+            status_code=429, 
+            detail=f"レポート生成の制限に達しました。{usage_check['message']} (リセット時刻: {usage_check['reset_time']})"
+        )
+    
     try:
         report_service = ReportService(db)
         

@@ -25,6 +25,7 @@ class ScrapingJob(Base):
     # 処理結果
     completed_urls = Column(JSON, default=list)  # 処理完了URL一覧（JSON array）
     failed_urls = Column(JSON, default=list)  # 処理失敗URL一覧（JSON array）
+    skipped_urls = Column(JSON, default=list)  # 重複でスキップされたURL一覧（JSON array）
     error_message = Column(Text)  # エラーメッセージ
     created_article_ids = Column(JSON, default=list)  # 作成された記事ID一覧（JSON array）
     

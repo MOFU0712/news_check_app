@@ -11,11 +11,24 @@ class LLMService:
     def __init__(self):
         """LLMサービスの初期化"""
         self.anthropic_api_key = settings.ANTHROPIC_API_KEY
-        if not self.anthropic_api_key:
+        logger.info(f"ANTHROPIC_API_KEY from settings: {'SET' if self.anthropic_api_key else 'NOT SET'}")
+        
+        # 一時的なテスト: 環境変数を直接読み込み
+        import os
+        direct_key = os.getenv('ANTHROPIC_API_KEY')
+        logger.info(f"ANTHROPIC_API_KEY from os.getenv: {'SET' if direct_key else 'NOT SET'}")
+        
+        # どちらかが設定されていればそれを使用
+        final_key = self.anthropic_api_key or direct_key
+        logger.info(f"Final API key status: {'SET' if final_key else 'NOT SET'}")
+        
+        if not final_key:
             logger.warning("ANTHROPIC_API_KEY not set. LLM features will be disabled.")
             self.client = None
         else:
-            self.client = Anthropic(api_key=self.anthropic_api_key)
+            logger.info("Initializing Anthropic client")
+            self.client = Anthropic(api_key=final_key)
+            print(f"=== Client initialized: type={type(self.client)}, has_messages={hasattr(self.client, 'messages')} ===")
         
         # デフォルトタグリスト
         self.default_tags = [
@@ -67,6 +80,14 @@ class LLMService:
         """リトライ機能付きのAPI呼び出し"""
         import time
         
+        # クライアントの状態をチェック
+        if not self.client:
+            logger.error("API client is None - cannot make API call")
+            raise ValueError("API client not initialized")
+        
+        logger.info(f"API client type: {type(self.client)}")
+        logger.info(f"API client has messages attribute: {hasattr(self.client, 'messages')}")
+        
         # 最初のリクエスト前に少し待機してAPI制限を回避
         if hasattr(self, '_last_request_time'):
             elapsed = time.time() - self._last_request_time
@@ -90,6 +111,7 @@ class LLMService:
                 if system:
                     request_params["system"] = system
                 
+                logger.info(f"Making API call with params: model={model}, max_tokens={max_tokens}")
                 response = self.client.messages.create(**request_params)
                 
                 # リクエスト時刻を記録

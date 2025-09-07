@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.models.user import User
 from app.core.security import verify_password, get_password_hash, create_access_token, verify_token
-from app.schemas.auth import UserLogin, UserRegister, UserInvite, Token
+from app.schemas.auth import UserLogin, UserRegister, UserInvite, Token, PasswordChange
 import secrets
 import redis
 from app.core.config import settings
@@ -118,3 +118,28 @@ class AuthService:
         if user is None:
             raise credentials_exception
         return user
+
+    @staticmethod
+    def change_password(db: Session, user: User, password_data: PasswordChange):
+        """パスワード変更"""
+        # 現在のパスワードを確認
+        if not verify_password(password_data.current_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="現在のパスワードが正しくありません"
+            )
+        
+        # 新しいパスワードが現在のパスワードと同じでないことを確認
+        if verify_password(password_data.new_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="新しいパスワードは現在のパスワードと異なるものにしてください"
+            )
+        
+        # パスワードを更新
+        user.hashed_password = get_password_hash(password_data.new_password)
+        user.password_change_required = False
+        db.commit()
+        db.refresh(user)
+        
+        return {"message": "パスワードが正常に変更されました"}

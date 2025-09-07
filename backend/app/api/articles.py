@@ -298,7 +298,7 @@ async def export_article_as_markdown(
         
         # ファイル名を生成（日本語文字を安全な形式に変換）
         safe_title = re.sub(r'[^\w\-_\.]', '_', article.title or "article")
-        filename = f"{safe_title}_{article.scraped_date.strftime('%Y%m%d_%H%M%S')}.md"
+        filename = f"{safe_title}_{article.published_date.strftime('%Y%m%d_%H%M%S')}.md"
         encoded_filename = urllib.parse.quote(filename)
         
         # Markdownコンテンツを準備
@@ -307,7 +307,7 @@ async def export_article_as_markdown(
 **URL**: {article.url}  
 **ソース**: {article.source or "不明"}  
 **公開日**: {article.published_date.strftime('%Y年%m月%d日') if article.published_date else "不明"}  
-**取得日**: {article.scraped_date.strftime('%Y年%m月%d日 %H:%M:%S')}
+**取得日**: {article.published_date.strftime('%Y年%m月%d日 %H:%M:%S')}
 
 """
         
@@ -357,7 +357,7 @@ async def export_multiple_articles_as_markdown(
                     
                     # ファイル名を生成
                     safe_title = re.sub(r'[^\w\-_\.]', '_', article.title or "article")
-                    filename = f"{safe_title}_{article.scraped_date.strftime('%Y%m%d_%H%M%S')}.md"
+                    filename = f"{safe_title}_{article.published_date.strftime('%Y%m%d_%H%M%S')}.md"
                     
                     # Markdownコンテンツを準備
                     markdown_content = f"""# {article.title}
@@ -365,7 +365,7 @@ async def export_multiple_articles_as_markdown(
 **URL**: {article.url}  
 **ソース**: {article.source or "不明"}  
 **公開日**: {article.published_date.strftime('%Y年%m月%d日') if article.published_date else "不明"}  
-**取得日**: {article.scraped_date.strftime('%Y年%m月%d日 %H:%M:%S')}
+**取得日**: {article.published_date.strftime('%Y年%m月%d日 %H:%M:%S')}
 
 """
                     

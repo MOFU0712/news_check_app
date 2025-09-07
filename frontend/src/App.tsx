@@ -9,18 +9,28 @@ import ArticleDetail from './pages/ArticleDetail'
 import Reports from './pages/Reports'
 import UserManagement from './pages/UserManagement'
 import Settings from './pages/Settings'
+import ChangePassword from './pages/ChangePassword'
 import { ScrapingPage } from './pages/ScrapingPage'
 import { TestScrapingComponents } from './components/scraping/TestScrapingComponents'
 import LoadingSpinner from './components/LoadingSpinner'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth()
+  const { isAuthenticated, loading, user } = useAuth()
 
   if (loading) {
     return <LoadingSpinner />
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+
+  // パスワード変更が必要な場合、パスワード変更ページにリダイレクト
+  if (user?.password_change_required && window.location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
+  }
+
+  return <>{children}</>
 }
 
 const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -41,6 +51,13 @@ const AppRoutes: React.FC = () => {
         <PublicRoute>
           <Login />
         </PublicRoute>
+      } />
+
+      {/* Password change route (special protected route) */}
+      <Route path="/change-password" element={
+        <ProtectedRoute>
+          <ChangePassword />
+        </ProtectedRoute>
       } />
 
       {/* Protected routes */}

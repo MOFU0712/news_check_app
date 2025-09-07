@@ -36,6 +36,7 @@ class ScrapingJobStatus(BaseModel):
     total: int = Field(..., description="総URL数")
     completed_urls: List[str] = Field(default=[], description="処理完了URL一覧")
     failed_urls: List[Dict[str, str]] = Field(default=[], description="失敗URL一覧（理由付き）")
+    skipped_urls: List[str] = Field(default=[], description="重複でスキップされたURL一覧")
     created_articles: List[str] = Field(default=[], description="作成された記事ID一覧")
     created_at: Optional[datetime] = Field(None, description="作成日時")
     started_at: Optional[datetime] = Field(None, description="開始日時")

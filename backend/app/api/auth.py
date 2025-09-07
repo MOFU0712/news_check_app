@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.schemas.auth import UserLogin, UserRegister, UserInvite, Token, UserResponse
+from app.schemas.auth import UserLogin, UserRegister, UserInvite, Token, UserResponse, PasswordChange
 from app.services.auth_service import AuthService
 from app.core.deps import get_current_admin_user, get_current_user
 from app.models.user import User
@@ -53,7 +53,8 @@ async def get_current_user_info(
         id=str(current_user.id),
         email=current_user.email,
         is_admin=current_user.is_admin,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
+        password_change_required=current_user.password_change_required
     )
 
 @router.get("/validate-token")
@@ -62,3 +63,12 @@ async def validate_token(
 ):
     """トークンの有効性を確認"""
     return {"valid": True, "user_id": str(current_user.id)}
+
+@router.post("/change-password")
+async def change_password(
+    password_data: PasswordChange,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """パスワード変更"""
+    return AuthService.change_password(db, current_user, password_data)

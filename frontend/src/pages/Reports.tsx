@@ -2,10 +2,12 @@ import React, { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { 
   BarChart3, TrendingUp, FileText, Calendar, 
-  Tag, Globe, RefreshCw, Save, Edit, Trash2, Eye, Download, Archive
+  Tag, Globe, RefreshCw, Save, Edit, Trash2, Eye, Download, Archive,
+  Clock, Mail, Settings, Plus, Play, Pause
 } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
+import UsageIndicator from '../components/UsageIndicator'
 
 interface ReportData {
   report_type: string
@@ -70,6 +72,52 @@ interface PromptTemplate {
   updated_at: string
 }
 
+interface ReportSchedule {
+  id: string
+  name: string
+  description?: string
+  enabled: boolean
+  schedule_type: 'daily' | 'weekly' | 'monthly'
+  schedule_time: string
+  schedule_display: string
+  weekday?: string
+  day_of_month?: string
+  report_type: string
+  report_title_template: string
+  date_range_days?: string
+  tags_filter: string[]
+  sources_filter: string[]
+  prompt_template_id?: string
+  email_enabled: boolean
+  email_recipients: string[]
+  email_subject_template?: string
+  last_executed_at?: string
+  last_execution_status?: string
+  last_execution_message?: string
+  next_scheduled_at?: string
+  created_at: string
+  updated_at: string
+}
+
+interface ReportScheduleFormData {
+  name: string
+  description: string
+  schedule_type: 'daily' | 'weekly' | 'monthly'
+  schedule_time: string
+  weekday: string
+  day_of_month: string
+  report_type: string
+  report_title_template: string
+  date_range_days: string
+  tags_filter: string[]
+  sources_filter: string[]
+  prompt_template_id: string
+  email_enabled: boolean
+  email_recipients: string[]
+  email_subject_template: string
+  enabled: boolean
+}
+
 const Reports: React.FC = () => {
   const queryClient = useQueryClient()
   const [reportType, setReportType] = useState<string>('summary')
@@ -81,7 +129,7 @@ const Reports: React.FC = () => {
   const [selectedSources] = useState<string[]>([])
   const [, setAnalyticsData] = useState<AnalyticsOverview | null>(null)
   const [reportTitle, setReportTitle] = useState('')
-  const [currentView, setCurrentView] = useState<'create' | 'technical' | 'saved'>('create')
+  const [currentView, setCurrentView] = useState<'create' | 'technical' | 'saved' | 'schedules'>('create')
   const [selectedReport, setSelectedReport] = useState<SavedReport | null>(null)
   const [editingReport, setEditingReport] = useState<SavedReport | null>(null)
   const [selectedPromptTemplate, setSelectedPromptTemplate] = useState<string | null>(null)
@@ -97,6 +145,28 @@ const Reports: React.FC = () => {
   const [technicalTemplateId, setTechnicalTemplateId] = useState('')
   const [technicalReportContent, setTechnicalReportContent] = useState('')
   const [technicalArticlesCount, setTechnicalArticlesCount] = useState(0)
+  
+  // スケジュール関連のState
+  const [showScheduleForm, setShowScheduleForm] = useState(false)
+  const [editingSchedule, setEditingSchedule] = useState<ReportSchedule | null>(null)
+  const [scheduleFormData, setScheduleFormData] = useState<ReportScheduleFormData>({
+    name: '',
+    description: '',
+    schedule_type: 'daily',
+    schedule_time: '09:00',
+    weekday: '0',
+    day_of_month: '1', 
+    report_type: 'summary',
+    report_title_template: '{schedule_type}レポート - {date}',
+    date_range_days: '',
+    tags_filter: [],
+    sources_filter: [],
+    prompt_template_id: '',
+    email_enabled: false,
+    email_recipients: [],
+    email_subject_template: '',
+    enabled: true
+  })
 
   // レポート生成
   const generateReport = async () => {
@@ -184,6 +254,15 @@ const Reports: React.FC = () => {
     }
   )
 
+  // スケジュール一覧を取得
+  const { data: schedules, isLoading: schedulesLoading, refetch: refetchSchedules } = useQuery(
+    'report-schedules',
+    async () => {
+      const response = await api.get<ReportSchedule[]>('/report-schedules')
+      return response.data
+    }
+  )
+
   // プロンプトテンプレート一覧を取得
   const { data: promptTemplates } = useQuery(
     'prompt-templates',
@@ -223,6 +302,7 @@ const Reports: React.FC = () => {
     onSuccess: () => {
       toast.success('レポートを保存しました')
       queryClient.invalidateQueries('saved-reports')
+      queryClient.invalidateQueries(['usage-status', 'report_generation'])
       setReportTitle('')
       setCurrentView('saved')
     },
@@ -255,6 +335,7 @@ const Reports: React.FC = () => {
     onSuccess: (data) => {
       setTechnicalReportContent(data.content)
       setTechnicalArticlesCount(data.articles_count)
+      queryClient.invalidateQueries(['usage-status', 'report_generation'])
       toast.success(`技術まとめレポートを生成しました（${data.articles_count}件の記事を分析）`)
     },
     onError: (error: any) => {
@@ -268,6 +349,7 @@ const Reports: React.FC = () => {
     onSuccess: () => {
       toast.success('技術まとめレポートを保存しました')
       queryClient.invalidateQueries('saved-reports')
+      queryClient.invalidateQueries(['usage-status', 'report_generation'])
       setCurrentView('saved')
       // リセット
       setTechnicalKeyword('')
@@ -279,6 +361,103 @@ const Reports: React.FC = () => {
       toast.error(message)
     }
   })
+
+  // スケジュール作成
+  const createScheduleMutation = useMutation(
+    async (data: ReportScheduleFormData) => {
+      const response = await api.post<ReportSchedule>('/report-schedules', data)
+      return response.data
+    },
+    {
+      onSuccess: () => {
+        toast.success('スケジュールを作成しました')
+        queryClient.invalidateQueries('report-schedules')
+        setShowScheduleForm(false)
+        resetScheduleForm()
+      },
+      onError: (error: any) => {
+        const message = error?.response?.data?.detail || 'スケジュールの作成に失敗しました'
+        toast.error(message)
+      }
+    }
+  )
+
+  // スケジュール更新
+  const updateScheduleMutation = useMutation(
+    async ({ id, data }: { id: string; data: Partial<ReportScheduleFormData> }) => {
+      const response = await api.put<ReportSchedule>(`/report-schedules/${id}`, data)
+      return response.data
+    },
+    {
+      onSuccess: () => {
+        toast.success('スケジュールを更新しました')
+        queryClient.invalidateQueries('report-schedules')
+        setEditingSchedule(null)
+        setShowScheduleForm(false)
+        resetScheduleForm()
+      },
+      onError: (error: any) => {
+        const message = error?.response?.data?.detail || 'スケジュールの更新に失敗しました'
+        toast.error(message)
+      }
+    }
+  )
+
+  // スケジュール削除
+  const deleteScheduleMutation = useMutation(
+    async (id: string) => {
+      await api.delete(`/report-schedules/${id}`)
+    },
+    {
+      onSuccess: () => {
+        toast.success('スケジュールを削除しました')
+        queryClient.invalidateQueries('report-schedules')
+      },
+      onError: (error: any) => {
+        const message = error?.response?.data?.detail || 'スケジュールの削除に失敗しました'
+        toast.error(message)
+      }
+    }
+  )
+
+  // スケジュール手動実行
+  const executeScheduleMutation = useMutation(
+    async (id: string) => {
+      const response = await api.post(`/report-schedules/${id}/execute`)
+      return response.data
+    },
+    {
+      onSuccess: () => {
+        toast.success('スケジュールを手動実行しました')
+        queryClient.invalidateQueries('report-schedules')
+      },
+      onError: (error: any) => {
+        const message = error?.response?.data?.detail || 'スケジュールの実行に失敗しました'
+        toast.error(message)
+      }
+    }
+  )
+
+  // メールテスト送信
+  const testEmailMutation = useMutation(
+    async (data: { to_emails: string[]; subject?: string; test_content?: string }) => {
+      const response = await api.post('/email/test', {
+        to_emails: data.to_emails,
+        subject: data.subject || 'News Check App テストメール',
+        test_content: data.test_content || 'これは定期レポート設定のテストメールです。'
+      })
+      return response.data
+    },
+    {
+      onSuccess: () => {
+        toast.success('テストメールを送信しました')
+      },
+      onError: (error: any) => {
+        const message = error?.response?.data?.detail || 'テストメールの送信に失敗しました'
+        toast.error(message)
+      }
+    }
+  )
 
   // 分析概要を取得
   const { data: analytics } = useQuery(
@@ -411,6 +590,79 @@ const Reports: React.FC = () => {
     }
   }
 
+  // スケジュールフォームのリセット
+  const resetScheduleForm = () => {
+    setScheduleFormData({
+      name: '',
+      description: '',
+      schedule_type: 'daily',
+      schedule_time: '09:00',
+      weekday: '0',
+      day_of_month: '1',
+      report_type: 'summary',
+      report_title_template: '{schedule_type}レポート - {date}',
+      date_range_days: '',
+      tags_filter: [],
+      sources_filter: [],
+      prompt_template_id: '',
+      email_enabled: false,
+      email_recipients: [],
+      email_subject_template: '',
+      enabled: true
+    })
+  }
+
+  // スケジュール編集時の初期化
+  const startEditSchedule = (schedule: ReportSchedule) => {
+    setEditingSchedule(schedule)
+    setScheduleFormData({
+      name: schedule.name,
+      description: schedule.description || '',
+      schedule_type: schedule.schedule_type,
+      schedule_time: schedule.schedule_time,
+      weekday: schedule.weekday || '0',
+      day_of_month: schedule.day_of_month || '1',
+      report_type: schedule.report_type,
+      report_title_template: schedule.report_title_template,
+      date_range_days: schedule.date_range_days || '',
+      tags_filter: schedule.tags_filter,
+      sources_filter: schedule.sources_filter,
+      prompt_template_id: schedule.prompt_template_id || '',
+      email_enabled: schedule.email_enabled,
+      email_recipients: schedule.email_recipients,
+      email_subject_template: schedule.email_subject_template || '',
+      enabled: schedule.enabled
+    })
+    setShowScheduleForm(true)
+  }
+
+  // スケジュール保存処理
+  const handleScheduleSubmit = () => {
+    if (editingSchedule) {
+      updateScheduleMutation.mutate({ id: editingSchedule.id, data: scheduleFormData })
+    } else {
+      createScheduleMutation.mutate(scheduleFormData)
+    }
+  }
+
+  // メール受信者の追加
+  const addEmailRecipient = (email: string) => {
+    if (email && !scheduleFormData.email_recipients.includes(email)) {
+      setScheduleFormData(prev => ({
+        ...prev,
+        email_recipients: [...prev.email_recipients, email]
+      }))
+    }
+  }
+
+  // メール受信者の削除
+  const removeEmailRecipient = (email: string) => {
+    setScheduleFormData(prev => ({
+      ...prev,
+      email_recipients: prev.email_recipients.filter(e => e !== email)
+    }))
+  }
+
   const reportTypes = [
     { value: 'summary', label: '概要レポート', icon: FileText },
     { value: 'tag_analysis', label: 'タグ分析', icon: Tag },
@@ -468,6 +720,22 @@ const Reports: React.FC = () => {
               {savedReports && savedReports.length > 0 && (
                 <span className="ml-2 bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full text-xs font-medium">
                   {savedReports.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setCurrentView('schedules')}
+              className={`flex items-center px-4 py-3 rounded-md font-semibold text-sm transition-all duration-200 ${
+                currentView === 'schedules'
+                  ? 'bg-white text-primary-700 shadow-sm ring-1 ring-primary-200'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-white/50'
+              }`}
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              定期レポート設定
+              {schedules && schedules.length > 0 && (
+                <span className="ml-2 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                  {schedules.filter(s => s.enabled).length}
                 </span>
               )}
             </button>
@@ -533,7 +801,10 @@ const Reports: React.FC = () => {
           {/* レポート生成セクション */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">カスタムレポート生成</h2>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">カスタムレポート生成</h2>
+                <UsageIndicator actionType="report_generation" className="mt-2" />
+              </div>
               <div className="flex space-x-2">
                 <button
                   onClick={() => generateNewReport()}
@@ -736,7 +1007,12 @@ const Reports: React.FC = () => {
       {currentView === 'technical' && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">技術まとめレポート</h2>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">技術まとめレポート</h2>
+                <UsageIndicator actionType="report_generation" className="mt-2" />
+              </div>
+            </div>
             <p className="text-sm text-gray-600 mb-6">
               特定のキーワードに関連する記事を分析して、技術的なまとめレポートを生成します。
             </p>
@@ -1034,6 +1310,155 @@ const Reports: React.FC = () => {
                     className="btn-primary"
                   >
                     レポートを作成
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 定期レポート設定 */}
+      {currentView === 'schedules' && (
+        <div className="space-y-6">
+          {/* ヘッダーとアクションボタン */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">定期レポート設定</h2>
+                <p className="text-gray-600 text-sm mt-1">
+                  daily, weekly, monthlyレポートの自動生成とメール送信を設定
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setEditingSchedule(null)
+                  resetScheduleForm()
+                  setShowScheduleForm(true)
+                }}
+                className="btn-primary flex items-center"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                新規スケジュール
+              </button>
+            </div>
+          </div>
+
+          {/* スケジュール一覧 */}
+          {schedulesLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <RefreshCw className="w-8 h-8 animate-spin text-gray-500" />
+              <span className="ml-2 text-gray-500">読み込み中...</span>
+            </div>
+          ) : (
+            <>
+              {schedules && schedules.length > 0 ? (
+                <div className="grid gap-6">
+                  {schedules.map((schedule) => (
+                    <div key={schedule.id} className="bg-white rounded-lg shadow p-6">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900">{schedule.name}</h3>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              schedule.enabled 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {schedule.enabled ? '有効' : '無効'}
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              schedule.schedule_type === 'daily' ? 'bg-blue-100 text-blue-800' :
+                              schedule.schedule_type === 'weekly' ? 'bg-purple-100 text-purple-800' :
+                              'bg-orange-100 text-orange-800'
+                            }`}>
+                              {schedule.schedule_type === 'daily' ? '日次' :
+                               schedule.schedule_type === 'weekly' ? '週次' : '月次'}
+                            </span>
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <div className="flex items-center space-x-4">
+                              <span>📅 {schedule.schedule_display}</span>
+                              <span>📊 {reportTypes.find(t => t.value === schedule.report_type)?.label}</span>
+                              {schedule.email_enabled && (
+                                <span>📧 {schedule.email_recipients.length}件の宛先</span>
+                              )}
+                            </div>
+                            {schedule.description && (
+                              <p className="text-gray-500">{schedule.description}</p>
+                            )}
+                            
+                            {/* 実行履歴 */}
+                            {schedule.last_executed_at && (
+                              <div className="flex items-center space-x-4 text-xs">
+                                <span>最終実行: {new Date(schedule.last_executed_at).toLocaleString('ja-JP')}</span>
+                                {schedule.last_execution_status && (
+                                  <span className={`px-2 py-0.5 rounded text-xs ${
+                                    schedule.last_execution_status === 'success' ? 'bg-green-100 text-green-800' :
+                                    schedule.last_execution_status === 'failed' ? 'bg-red-100 text-red-800' :
+                                    'bg-yellow-100 text-yellow-800'
+                                  }`}>
+                                    {schedule.last_execution_status}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {schedule.next_scheduled_at && (
+                              <div className="text-xs text-gray-500">
+                                次回実行予定: {new Date(schedule.next_scheduled_at).toLocaleString('ja-JP')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => executeScheduleMutation.mutate(schedule.id)}
+                            disabled={executeScheduleMutation.isLoading}
+                            className="btn-secondary flex items-center text-sm"
+                            title="手動実行"
+                          >
+                            <Play className="w-4 h-4 mr-1" />
+                            実行
+                          </button>
+                          <button
+                            onClick={() => startEditSchedule(schedule)}
+                            className="btn-secondary flex items-center text-sm"
+                          >
+                            <Settings className="w-4 h-4 mr-1" />
+                            設定
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (confirm('このスケジュールを削除しますか？')) {
+                                deleteScheduleMutation.mutate(schedule.id)
+                              }
+                            }}
+                            className="btn-danger flex items-center text-sm"
+                            disabled={deleteScheduleMutation.isLoading}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            削除
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">定期レポートが設定されていません</h3>
+                  <p className="text-gray-500 mb-4">daily, weekly, monthly の自動レポート生成を設定しましょう</p>
+                  <button
+                    onClick={() => {
+                      setEditingSchedule(null)
+                      resetScheduleForm()
+                      setShowScheduleForm(true)
+                    }}
+                    className="btn-primary"
+                  >
+                    初回スケジュール設定
                   </button>
                 </div>
               )}
@@ -1452,6 +1877,373 @@ const Reports: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* スケジュール作成・編集フォーム */}
+      {showScheduleForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-semibold">
+                {editingSchedule ? 'スケジュール編集' : '新規スケジュール作成'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowScheduleForm(false)
+                  setEditingSchedule(null)
+                  resetScheduleForm()
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* 左側: 基本設定 */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">基本設定</h3>
+                  
+                  {/* スケジュール名 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      スケジュール名 *
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleFormData.name}
+                      onChange={(e) => setScheduleFormData(prev => ({...prev, name: e.target.value}))}
+                      className="input-field"
+                      placeholder="例: 日次ニュースレター"
+                      required
+                    />
+                  </div>
+
+                  {/* 説明 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      説明
+                    </label>
+                    <textarea
+                      value={scheduleFormData.description}
+                      onChange={(e) => setScheduleFormData(prev => ({...prev, description: e.target.value}))}
+                      className="input-field"
+                      rows={2}
+                      placeholder="スケジュールの説明（任意）"
+                    />
+                  </div>
+
+                  {/* スケジュールタイプ */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      スケジュールタイプ *
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="schedule_type"
+                          value="daily"
+                          checked={scheduleFormData.schedule_type === 'daily'}
+                          onChange={(e) => setScheduleFormData(prev => ({...prev, schedule_type: e.target.value as 'daily'}))}
+                          className="form-radio text-primary-600"
+                        />
+                        <span className="ml-2 text-sm">日次 - 毎日指定時刻に前日分をレポート</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="schedule_type"
+                          value="weekly"
+                          checked={scheduleFormData.schedule_type === 'weekly'}
+                          onChange={(e) => setScheduleFormData(prev => ({...prev, schedule_type: e.target.value as 'weekly'}))}
+                          className="form-radio text-primary-600"
+                        />
+                        <span className="ml-2 text-sm">週次 - 毎週指定曜日に先週分をレポート</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="schedule_type"
+                          value="monthly"
+                          checked={scheduleFormData.schedule_type === 'monthly'}
+                          onChange={(e) => setScheduleFormData(prev => ({...prev, schedule_type: e.target.value as 'monthly'}))}
+                          className="form-radio text-primary-600"
+                        />
+                        <span className="ml-2 text-sm">月次 - 毎月指定日に先月分をレポート</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 実行時刻 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      実行時刻 *
+                    </label>
+                    <input
+                      type="time"
+                      value={scheduleFormData.schedule_time}
+                      onChange={(e) => setScheduleFormData(prev => ({...prev, schedule_time: e.target.value}))}
+                      className="input-field"
+                    />
+                  </div>
+
+                  {/* 週次の場合の曜日設定 */}
+                  {scheduleFormData.schedule_type === 'weekly' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        実行曜日 *
+                      </label>
+                      <select
+                        value={scheduleFormData.weekday}
+                        onChange={(e) => setScheduleFormData(prev => ({...prev, weekday: e.target.value}))}
+                        className="input-field"
+                      >
+                        <option value="0">月曜日</option>
+                        <option value="1">火曜日</option>
+                        <option value="2">水曜日</option>
+                        <option value="3">木曜日</option>
+                        <option value="4">金曜日</option>
+                        <option value="5">土曜日</option>
+                        <option value="6">日曜日</option>
+                      </select>
+                    </div>
+                  )}
+
+                  {/* 月次の場合の日付設定 */}
+                  {scheduleFormData.schedule_type === 'monthly' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        実行日 *
+                      </label>
+                      <select
+                        value={scheduleFormData.day_of_month}
+                        onChange={(e) => setScheduleFormData(prev => ({...prev, day_of_month: e.target.value}))}
+                        className="input-field"
+                      >
+                        {Array.from({length: 28}, (_, i) => i + 1).map(day => (
+                          <option key={day} value={day.toString()}>{day}日</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* レポートタイプ */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      レポートタイプ *
+                    </label>
+                    <select
+                      value={scheduleFormData.report_type}
+                      onChange={(e) => setScheduleFormData(prev => ({...prev, report_type: e.target.value}))}
+                      className="input-field"
+                    >
+                      {reportTypes.map(type => (
+                        <option key={type.value} value={type.value}>{type.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* レポートタイトルテンプレート */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      レポートタイトルテンプレート *
+                    </label>
+                    <input
+                      type="text"
+                      value={scheduleFormData.report_title_template}
+                      onChange={(e) => setScheduleFormData(prev => ({...prev, report_title_template: e.target.value}))}
+                      className="input-field"
+                      placeholder="{schedule_type}レポート - {date}"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      利用可能な変数: {'{schedule_type}'}, {'{date}'}, {'{year}'}, {'{month}'}, {'{day}'}
+                    </div>
+                  </div>
+
+                  {/* プロンプトテンプレート */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      プロンプトテンプレート
+                    </label>
+                    <select
+                      value={scheduleFormData.prompt_template_id}
+                      onChange={(e) => setScheduleFormData(prev => ({...prev, prompt_template_id: e.target.value}))}
+                      className="input-field"
+                    >
+                      <option value="">デフォルトプロンプトを使用</option>
+                      {promptTemplates?.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name} ({template.model_name})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* 右側: メール設定 */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">メール設定</h3>
+
+                  {/* メール送信有効/無効 */}
+                  <div>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={scheduleFormData.email_enabled}
+                        onChange={(e) => setScheduleFormData(prev => ({...prev, email_enabled: e.target.checked}))}
+                        className="form-checkbox text-primary-600"
+                      />
+                      <span className="ml-2 text-sm font-medium text-gray-700">メール送信を有効にする</span>
+                    </label>
+                  </div>
+
+                  {scheduleFormData.email_enabled && (
+                    <>
+                      {/* メール受信者リスト */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          送信先メールアドレス
+                        </label>
+                        <div className="space-y-2">
+                          {/* 既存の受信者一覧 */}
+                          {scheduleFormData.email_recipients.map((email, index) => (
+                            <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                              <span className="text-sm">{email}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeEmailRecipient(email)}
+                                className="text-red-600 hover:text-red-800 text-sm"
+                              >
+                                削除
+                              </button>
+                            </div>
+                          ))}
+                          
+                          {/* 新しいメール追加 */}
+                          <div className="flex space-x-2">
+                            <input
+                              type="email"
+                              placeholder="メールアドレスを入力"
+                              className="input-field flex-1"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault()
+                                  const email = e.currentTarget.value.trim()
+                                  if (email) {
+                                    addEmailRecipient(email)
+                                    e.currentTarget.value = ''
+                                  }
+                                }
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                const input = e.currentTarget.previousElementSibling as HTMLInputElement
+                                const email = input.value.trim()
+                                if (email) {
+                                  addEmailRecipient(email)
+                                  input.value = ''
+                                }
+                              }}
+                              className="btn-secondary text-sm px-3"
+                            >
+                              追加
+                            </button>
+                          </div>
+
+                          {/* テストメール送信 */}
+                          {scheduleFormData.email_recipients.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => testEmailMutation.mutate({ 
+                                to_emails: scheduleFormData.email_recipients,
+                                subject: `${scheduleFormData.name} - テストメール`,
+                                test_content: 'これは定期レポート設定のテストメールです。設定が正しく動作しています。'
+                              })}
+                              disabled={testEmailMutation.isLoading}
+                              className="btn-secondary flex items-center text-sm"
+                            >
+                              {testEmailMutation.isLoading ? (
+                                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                              ) : (
+                                <Mail className="w-4 h-4 mr-2" />
+                              )}
+                              テストメール送信
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* メール件名テンプレート */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          メール件名テンプレート
+                        </label>
+                        <input
+                          type="text"
+                          value={scheduleFormData.email_subject_template}
+                          onChange={(e) => setScheduleFormData(prev => ({...prev, email_subject_template: e.target.value}))}
+                          className="input-field"
+                          placeholder="📊 {report_title} - News Check App"
+                        />
+                        <div className="text-xs text-gray-500 mt-1">
+                          空の場合はデフォルトの件名が使用されます
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* 有効/無効 */}
+                  <div>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={scheduleFormData.enabled}
+                        onChange={(e) => setScheduleFormData(prev => ({...prev, enabled: e.target.checked}))}
+                        className="form-checkbox text-primary-600"
+                      />
+                      <span className="ml-2 text-sm font-medium text-gray-700">スケジュールを有効にする</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* フォームアクション */}
+              <div className="flex justify-end space-x-2 mt-8 pt-6 border-t">
+                <button
+                  onClick={() => {
+                    setShowScheduleForm(false)
+                    setEditingSchedule(null)
+                    resetScheduleForm()
+                  }}
+                  className="btn-secondary"
+                >
+                  キャンセル
+                </button>
+                <button
+                  onClick={handleScheduleSubmit}
+                  disabled={!scheduleFormData.name || !scheduleFormData.report_title_template || 
+                           createScheduleMutation.isLoading || updateScheduleMutation.isLoading}
+                  className="btn-primary"
+                >
+                  {createScheduleMutation.isLoading || updateScheduleMutation.isLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      {editingSchedule ? '更新中...' : '作成中...'}
+                    </>
+                  ) : (
+                    editingSchedule ? '更新' : '作成'
+                  )}
+                </button>
               </div>
             </div>
           </div>

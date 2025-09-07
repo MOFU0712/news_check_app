@@ -25,6 +25,11 @@ class UserResponse(BaseModel):
     email: str
     is_admin: bool
     is_active: bool
+    password_change_required: bool
     
     class Config:
         from_attributes = True
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str

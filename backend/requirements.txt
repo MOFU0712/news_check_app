@@ -22,6 +22,8 @@ requests==2.31.0
 beautifulsoup4==4.12.2
 lxml==4.9.3
 chardet==5.2.0
+feedparser==6.0.10
+aiohttp==3.9.1
 
 # AI/LLM
 anthropic==0.7.8

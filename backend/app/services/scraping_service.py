@@ -38,6 +38,7 @@ class ScrapingService:
         target_urls = parse_result.valid_urls
         
         # 重複チェック
+        duplicate_urls = []
         if skip_duplicates:
             existing_urls: Set[str] = set(
                 row.url for row in self.db.query(Article.url).all()
@@ -56,7 +57,8 @@ class ScrapingService:
             auto_generate_tags_bool=auto_generate_tags,
             skip_duplicates_bool=skip_duplicates,
             total=len(target_urls),
-            status="pending"
+            status="pending",
+            skipped_urls=duplicate_urls  # スキップされたURLを保存
         )
         
         self.db.add(job)

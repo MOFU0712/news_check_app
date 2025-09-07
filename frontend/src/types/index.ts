@@ -3,6 +3,7 @@ export interface User {
   email: string
   is_admin: boolean
   is_active: boolean
+  password_change_required: boolean
 }
 
 export interface LoginData {

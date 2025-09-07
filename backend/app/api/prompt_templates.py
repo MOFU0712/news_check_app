@@ -26,6 +26,8 @@ class PromptTemplateResponse(BaseModel):
     temperature: float
     created_at: str
     updated_at: str
+    created_by: Optional[str]
+    is_editable: bool  # 現在のユーザーが編集可能かどうか
     
 class PromptTemplateCreate(BaseModel):
     name: str
@@ -56,10 +58,9 @@ def get_prompt_templates(
     """プロンプトテンプレート一覧を取得"""
     logger.info(f"Getting templates for user {current_user.id}, type: {current_user.id.__class__.__name__}")
     
-    # デフォルトテンプレート + ユーザーテンプレートを取得
+    # すべてのアクティブなテンプレートを取得（共有可能）
     query = db.query(PromptTemplate).filter(
-        (PromptTemplate.created_by == current_user.id) | 
-        (PromptTemplate.created_by == "system-default-user-id")
+        PromptTemplate.is_active == True
     )
     
     if template_type:
@@ -81,7 +82,9 @@ def get_prompt_templates(
             max_tokens=template.max_tokens or 2000,
             temperature=template.temperature if template.temperature is not None else 0.3,
             created_at=template.created_at.isoformat(),
-            updated_at=template.updated_at.isoformat()
+            updated_at=template.updated_at.isoformat(),
+            created_by=str(template.created_by) if template.created_by else None,
+            is_editable=str(template.created_by) == str(current_user.id)
         )
         for template in templates
     ]
@@ -129,7 +132,9 @@ def create_prompt_template(
             max_tokens=template.max_tokens,
             temperature=template.temperature,
             created_at=template.created_at.isoformat(),
-            updated_at=template.updated_at.isoformat()
+            updated_at=template.updated_at.isoformat(),
+            created_by=str(template.created_by) if template.created_by else None,
+            is_editable=True  # 作成者なので編集可能
         )
     except Exception as e:
         logger.error(f"Error creating template: {e}")
@@ -145,7 +150,7 @@ def get_prompt_template(
     """特定のプロンプトテンプレートを取得"""
     template = db.query(PromptTemplate).filter(
         PromptTemplate.id == template_id,
-        PromptTemplate.created_by == current_user.id
+        PromptTemplate.is_active == True
     ).first()
     
     if not template:
@@ -162,7 +167,9 @@ def get_prompt_template(
         max_tokens=template.max_tokens,
         temperature=template.temperature,
         created_at=template.created_at.isoformat(),
-        updated_at=template.updated_at.isoformat()
+        updated_at=template.updated_at.isoformat(),
+        created_by=str(template.created_by) if template.created_by else None,
+        is_editable=str(template.created_by) == str(current_user.id)
     )
 
 @router.put("/{template_id}", response_model=PromptTemplateResponse)
@@ -217,7 +224,9 @@ def update_prompt_template(
             max_tokens=template.max_tokens,
             temperature=template.temperature,
             created_at=template.created_at.isoformat(),
-            updated_at=template.updated_at.isoformat()
+            updated_at=template.updated_at.isoformat(),
+            created_by=str(template.created_by) if template.created_by else None,
+            is_editable=True  # 編集権限があるユーザーなので編集可能
         )
     except Exception as e:
         logger.error(f"Error updating template: {e}")
