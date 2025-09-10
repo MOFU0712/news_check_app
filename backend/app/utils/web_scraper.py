@@ -272,33 +272,110 @@ class WebScraper:
         return domain.replace('www.', '')
     
     def _extract_published_date(self, soup: BeautifulSoup) -> Optional[datetime]:
-        """公開日時抽出"""
-        # JSON-LD structured data
-        json_ld = soup.find('script', type='application/ld+json')
-        if json_ld:
-            try:
-                import json
-                data = json.loads(json_ld.string)
-                if isinstance(data, dict) and 'datePublished' in data:
-                    return datetime.fromisoformat(data['datePublished'].replace('Z', '+00:00'))
-            except:
-                pass
+        """公開日時抽出（複数のパターンに対応）"""
+        import json
+        from dateutil import parser as date_parser
         
-        # meta タグからの日付抽出
+        # JSON-LD structured data
+        json_ld_scripts = soup.find_all('script', type='application/ld+json')
+        for json_ld in json_ld_scripts:
+            try:
+                data = json.loads(json_ld.string)
+                # データが配列の場合は各要素をチェック
+                data_list = data if isinstance(data, list) else [data]
+                
+                for item in data_list:
+                    if isinstance(item, dict):
+                        # 複数のプロパティをチェック
+                        for date_prop in ['datePublished', 'dateCreated', 'dateModified', 'publishDate']:
+                            if date_prop in item and item[date_prop]:
+                                try:
+                                    date_str = str(item[date_prop]).replace('Z', '+00:00')
+                                    return datetime.fromisoformat(date_str)
+                                except:
+                                    # dateutilでのパースも試行
+                                    try:
+                                        return date_parser.parse(str(item[date_prop]))
+                                    except:
+                                        continue
+            except:
+                continue
+        
+        # meta タグからの日付抽出（より多くのパターンを追加）
         date_selectors = [
             ('meta', {'property': 'article:published_time'}),
+            ('meta', {'property': 'article:modified_time'}),
             ('meta', {'name': 'date'}),
             ('meta', {'name': 'publish_date'}),
-            ('time', {'datetime': True})
+            ('meta', {'name': 'publication_date'}),
+            ('meta', {'name': 'pubdate'}),
+            ('meta', {'name': 'created'}),
+            ('meta', {'name': 'DC.date'}),
+            ('meta', {'name': 'DC.Date'}),
+            ('meta', {'name': 'dc.date'}),
+            ('meta', {'name': 'sailthru.date'}),
+            ('meta', {'property': 'bt:pubDate'}),
+            ('time', {'datetime': True}),
+            ('time', {'pubdate': True})
         ]
         
         for tag_name, attrs in date_selectors:
-            tag = soup.find(tag_name, attrs)
-            if tag:
+            tags = soup.find_all(tag_name, attrs)
+            for tag in tags:
                 date_str = tag.get('content') or tag.get('datetime')
                 if date_str:
                     try:
-                        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                        # ISO形式での解析を試行
+                        date_str_clean = str(date_str).replace('Z', '+00:00')
+                        return datetime.fromisoformat(date_str_clean)
+                    except:
+                        try:
+                            # dateutilでの柔軟なパース
+                            return date_parser.parse(str(date_str))
+                        except:
+                            continue
+        
+        # OpenGraphやTwitterカードの日付
+        og_date = soup.find('meta', property='og:updated_time') or soup.find('meta', property='og:published_time')
+        if og_date and og_date.get('content'):
+            try:
+                return date_parser.parse(og_date['content'])
+            except:
+                pass
+        
+        # HTML5のtimeタグ（より広範な検索）
+        time_tags = soup.find_all('time')
+        for time_tag in time_tags:
+            datetime_attr = time_tag.get('datetime')
+            if datetime_attr:
+                try:
+                    return date_parser.parse(datetime_attr)
+                except:
+                    continue
+            
+            # timeタグ内のテキストからも抽出を試行
+            time_text = time_tag.get_text().strip()
+            if time_text:
+                try:
+                    return date_parser.parse(time_text)
+                except:
+                    continue
+        
+        # classやidに日付が含まれる要素を検索
+        date_patterns = [
+            r'\d{4}-\d{2}-\d{2}',  # YYYY-MM-DD
+            r'\d{4}/\d{2}/\d{2}',  # YYYY/MM/DD
+            r'\d{2}/\d{2}/\d{4}',  # MM/DD/YYYY
+        ]
+        
+        date_classes = ['date', 'published', 'publish-date', 'post-date', 'article-date', 'timestamp']
+        for class_name in date_classes:
+            elements = soup.find_all(attrs={'class': lambda x: x and any(class_name in c.lower() for c in x)})
+            for element in elements:
+                text = element.get_text().strip()
+                if text:
+                    try:
+                        return date_parser.parse(text)
                     except:
                         continue
         

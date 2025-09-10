@@ -7,6 +7,7 @@ import { ScrapingProgress } from '@/components/scraping/ScrapingProgress';
 import { ScrapingHistory } from '@/components/scraping/ScrapingHistory';
 import { AutoScheduleSettings } from '@/components/scraping/AutoScheduleSettings.tsx';
 import { RSSFeedEditor } from '@/components/scraping/RSSFeedEditor.tsx';
+import { RSSTestPanel } from '@/components/scraping/RSSTestPanel';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -222,7 +223,20 @@ export const ScrapingPage: React.FC = () => {
 
         {/* RSS設定タブ */}
         <TabsContent value="rss" className="space-y-6">
-          <RSSFeedEditor />
+          <Tabs defaultValue="test" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="test">RSS テスト・実行</TabsTrigger>
+              <TabsTrigger value="editor">フィード編集</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="test">
+              <RSSTestPanel />
+            </TabsContent>
+            
+            <TabsContent value="editor">
+              <RSSFeedEditor />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         {/* 自動スケジュールタブ */}

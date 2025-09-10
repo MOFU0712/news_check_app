@@ -63,6 +63,7 @@ class ManualRSSScrapingRequest(BaseModel):
     include_arxiv: bool = Field(False, description="arXiv論文を含めるかどうか")
     arxiv_categories: Optional[List[str]] = Field(None, description="arXiv検索カテゴリ")
     arxiv_max_results: int = Field(20, ge=0, le=100, description="arXivから取得する最大論文数")
+    hours_back: int = Field(24, ge=1, le=168, description="遡る時間（時間、最大7日間）")
 
 
 class ArxivSearchRequest(BaseModel):
@@ -174,6 +175,7 @@ class RSSTestRequest(BaseModel):
     include_arxiv: bool = Field(False, description="arXiv論文を含めるかどうか")
     arxiv_categories: Optional[List[str]] = Field(None, description="arXiv検索カテゴリ")
     arxiv_max_results: int = Field(20, ge=0, le=100, description="arXivから取得する最大論文数")
+    hours_back: int = Field(24, ge=1, le=168, description="遡る時間（時間、最大7日間）")
 
 
 @router.post("/feeds/from-file")
@@ -189,7 +191,7 @@ async def test_rss_feeds_from_file(
                 detail=f"RSS file not found: {request.rss_file_path}"
             )
         
-        async with RSSService() as rss_service:
+        async with RSSService(hours_back=request.hours_back) as rss_service:
             if request.include_arxiv:
                 article_urls, rss_results, arxiv_papers = await rss_service.get_latest_articles_with_arxiv(
                     request.rss_file_path,
@@ -322,9 +324,10 @@ async def manual_rss_scraping(
             request.include_arxiv,
             request.arxiv_categories,
             request.arxiv_max_results,
+            request.hours_back,
             task_id=f"manual_rss_{current_user.id}_{int(datetime.now().timestamp())}",
             total=100,
-            message=f"手動RSSスクレイピング開始: {request.rss_file_path}"
+            message=f"手動RSSスクレイピング開始（{request.hours_back}時間遡り）: {request.rss_file_path}"
         )
         
         return {
@@ -351,6 +354,7 @@ async def _manual_rss_scraping_task(
     include_arxiv: bool,
     arxiv_categories: Optional[List[str]],
     arxiv_max_results: int,
+    hours_back: int,
     progress_callback=None
 ):
     """手動RSSスクレイピングタスク"""
@@ -366,7 +370,8 @@ async def _manual_rss_scraping_task(
         skip_duplicates=skip_duplicates,
         include_arxiv=include_arxiv,
         arxiv_categories=arxiv_categories,
-        arxiv_max_results=arxiv_max_results
+        arxiv_max_results=arxiv_max_results,
+        hours_back=hours_back
     )
     
     # スケジューラーサービスのタスクを再利用

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+// import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, FileText, Brain, Calendar, ExternalLink, CheckCircle2, XCircle, StopCircle } from 'lucide-react';
+import { Loader2, FileText, Brain, Calendar, Clock, ExternalLink, CheckCircle2, XCircle, StopCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -51,6 +51,7 @@ export const RSSTestPanel: React.FC = () => {
   const [includeArxiv, setIncludeArxiv] = useState(false);
   const [arxivCategories, setArxivCategories] = useState('cs.AI,cs.LG,cs.CV');
   const [arxivMaxResults, setArxivMaxResults] = useState(10);
+  const [hoursBack, setHoursBack] = useState(24);
   const [testResult, setTestResult] = useState<RSSTestResult | null>(null);
   const [scrapingJobId, setScrapingJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
@@ -135,7 +136,8 @@ export const RSSTestPanel: React.FC = () => {
         rss_file_path: rssFilePath,
         include_arxiv: includeArxiv,
         arxiv_categories: includeArxiv ? arxivCategories.split(',').map(c => c.trim()) : [],
-        arxiv_max_results: includeArxiv ? arxivMaxResults : 0
+        arxiv_max_results: includeArxiv ? arxivMaxResults : 0,
+        hours_back: hoursBack
       };
       
       const response = await fetch('/api/rss/feeds/from-file', {
@@ -234,7 +236,8 @@ export const RSSTestPanel: React.FC = () => {
           skip_duplicates: true,
           include_arxiv: includeArxiv,
           arxiv_categories: includeArxiv ? arxivCategories.split(',').map(c => c.trim()) : [],
-          arxiv_max_results: includeArxiv ? arxivMaxResults : 0
+          arxiv_max_results: includeArxiv ? arxivMaxResults : 0,
+          hours_back: hoursBack
         }),
       });
 
@@ -279,6 +282,68 @@ export const RSSTestPanel: React.FC = () => {
                 placeholder="RSSフィードリストファイルのパス"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+            </div>
+
+            {/* 時間設定セクション */}
+            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-blue-800">取得時間範囲設定</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="hours-back" className="block text-sm font-medium mb-2 text-blue-700">
+                    遡る時間（時間）
+                  </label>
+                  <input
+                    id="hours-back"
+                    type="number"
+                    min="1"
+                    max="168"
+                    value={hoursBack}
+                    onChange={(e) => setHoursBack(parseInt(e.target.value) || 24)}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  />
+                  {/* プリセットボタン */}
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {[24, 48, 72, 120, 168].map((hours) => (
+                      <Button
+                        key={hours}
+                        variant={hoursBack === hours ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setHoursBack(hours)}
+                        className="text-xs"
+                      >
+                        {hours === 24 ? '1日' :
+                         hours === 48 ? '2日' :
+                         hours === 72 ? '3日' :
+                         hours === 120 ? '5日' :
+                         hours === 168 ? '7日' : `${hours}h`}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center text-sm text-blue-600">
+                  <div>
+                    <div className="font-medium">現在の設定: {hoursBack}時間</div>
+                    <div className="text-xs text-blue-500 mt-1">
+                      {hoursBack === 24 ? '過去1日' : 
+                       hoursBack === 48 ? '過去2日' :
+                       hoursBack === 72 ? '過去3日' :
+                       hoursBack <= 168 ? `過去${Math.ceil(hoursBack/24)}日` : '過去7日以上'}
+                      の記事を取得します
+                    </div>
+                    <div className="text-xs text-blue-400 mt-2">
+                      <strong>推奨設定:</strong><br/>
+                      • 通常: 24時間<br/>
+                      • 失敗時: 48-72時間
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600 mt-2">
+                💡 自動スクレイピングが失敗した場合は、48時間や72時間に設定して過去の記事を取得できます（最大7日間）
+              </p>
             </div>
 
             <div className="flex items-center space-x-3">

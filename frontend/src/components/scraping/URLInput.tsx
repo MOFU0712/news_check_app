@@ -56,6 +56,7 @@ export const URLInput: React.FC<URLInputProps> = ({
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
   const [isRssFetching, setIsRssFetching] = useState(false);
+  const [hoursBack, setHoursBack] = useState(24);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // URL解析処理
@@ -78,7 +79,8 @@ export const URLInput: React.FC<URLInputProps> = ({
           rss_file_path: '/Users/tsutsuikana/Desktop/coding_workspace/news_check_app/backend/rss_feeds.txt',
           include_arxiv: true,
           arxiv_categories: ['cs.AI', 'cs.LG', 'cs.CV'],
-          arxiv_max_results: 50
+          arxiv_max_results: 50,
+          hours_back: hoursBack
         }),
       });
 
@@ -164,20 +166,75 @@ export const URLInput: React.FC<URLInputProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* 時間設定セクション */}
+          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4 text-gray-600" />
+              <h3 className="text-sm font-medium text-gray-700">取得時間範囲設定</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="hours-back" className="block text-xs font-medium mb-1 text-gray-600">
+                  遡る時間（時間）
+                </label>
+                <input
+                  id="hours-back"
+                  type="number"
+                  min="1"
+                  max="168"
+                  value={hoursBack}
+                  onChange={(e) => setHoursBack(parseInt(e.target.value) || 24)}
+                  className="w-full px-2 py-1 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 bg-white"
+                  disabled={isLoading || isRssFetching}
+                />
+                {/* プリセットボタン */}
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {[24, 48, 72, 120, 168].map((hours) => (
+                    <Button
+                      key={hours}
+                      variant={hoursBack === hours ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => setHoursBack(hours)}
+                      className="text-xs px-2 py-1 h-6"
+                      disabled={isLoading || isRssFetching}
+                    >
+                      {hours === 24 ? '1日' :
+                       hours === 48 ? '2日' :
+                       hours === 72 ? '3日' :
+                       hours === 120 ? '5日' :
+                       hours === 168 ? '7日' : `${hours}h`}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center text-xs text-gray-600">
+                <div>
+                  <div className="font-medium">現在: {hoursBack}時間 ({hoursBack === 24 ? '過去1日' : 
+                     hoursBack === 48 ? '過去2日' :
+                     hoursBack === 72 ? '過去3日' :
+                     hoursBack <= 168 ? `過去${Math.ceil(hoursBack/24)}日` : '過去7日以上'})</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    失敗時は48-72時間推奨
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 操作ボタン */}
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="default"
-              size="sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+              size="default"
               onClick={handleFetchRssArxiv}
               disabled={isLoading || isRssFetching}
             >
               {isRssFetching ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               ) : (
-                <Brain className="h-4 w-4 mr-1" />
+                <Brain className="h-5 w-5 mr-2" />
               )}
-              RSS+arXiv取得
+              RSS+arXiv取得 ({hoursBack}時間)
             </Button>
             <Button
               variant="outline"

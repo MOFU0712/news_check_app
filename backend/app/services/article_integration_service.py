@@ -158,6 +158,7 @@ class ArticleIntegrationService:
             tags = list(dict.fromkeys(all_tags))  # 重複除去
         
         # 記事データの準備
+        current_time = datetime.utcnow()
         article_data = {
             "title": scraped_content.title or "無題",
             "content": scraped_content.content or "",
@@ -165,8 +166,8 @@ class ArticleIntegrationService:
             "source": scraped_content.site_name or self._extract_domain(scraped_content.url),
             "summary": ai_summary,  # LLMで生成された要約を使用
             "tags": tags,
-            "published_date": scraped_content.published_date,
-            "scraped_date": datetime.utcnow(),
+            "published_date": scraped_content.published_date or current_time,  # published_dateがNoneの場合はスクレイピング時刻を使用
+            "scraped_date": current_time,
             "created_by": scraping_job.user_id
         }
         

@@ -31,6 +31,7 @@ class ScheduleConfig:
     include_arxiv: bool = False
     arxiv_categories: Optional[List[str]] = None
     arxiv_max_results: int = 20
+    hours_back: int = 24
 
 
 class SchedulerService:
@@ -157,7 +158,7 @@ class SchedulerService:
                 progress_callback(0, 100, f"RSSフィードを読み込み中: {config.rss_file_path}")
             
             # RSSサービスでRSSフィード・arXiv論文から記事URLを取得
-            async with RSSService() as rss_service:
+            async with RSSService(hours_back=config.hours_back) as rss_service:
                 def rss_progress_callback(current, total, message):
                     if progress_callback:
                         # RSS処理は全体の30%とする

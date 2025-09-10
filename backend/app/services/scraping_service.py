@@ -299,7 +299,7 @@ class ScrapingService:
                 source=content.site_name or "",
                 summary="",  # スクレイピング時は要約を空にして、LLMで後から生成
                 tags=tags,
-                published_date=content.published_date,
+                published_date=content.published_date or datetime.now(timezone.utc),  # published_dateがNoneの場合はスクレイピング時刻を使用
                 scraped_date=datetime.now(timezone.utc),
                 created_by=job.user_id
             )
@@ -402,7 +402,7 @@ class ScrapingService:
                 source=content.site_name or "",
                 summary="",  # スクレイピング時は要約を空にして、LLMで後から生成
                 tags=tags,
-                published_date=content.published_date,
+                published_date=content.published_date or datetime.now(timezone.utc),  # published_dateがNoneの場合はスクレイピング時刻を使用
                 scraped_date=datetime.now(timezone.utc),
                 created_by=job.user_id
             )

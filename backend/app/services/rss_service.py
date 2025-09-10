@@ -35,8 +35,9 @@ class RSSFeedResult:
 class RSSService:
     """RSSフィード処理サービス"""
     
-    def __init__(self, timeout: int = 30):
+    def __init__(self, timeout: int = 30, hours_back: int = 24):
         self.timeout = timeout
+        self.hours_back = hours_back
         self.session = None
         
         # User-Agent設定
@@ -91,15 +92,15 @@ class RSSService:
             if feed.bozo and feed.bozo_exception:
                 logger.warning(f"RSS feed parsing warning for {feed_url}: {feed.bozo_exception}")
             
-            # 記事リストを構築（24時間以内のもののみ）
+            # 記事リストを構築（指定時間以内のもののみ）
             articles = []
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=self.hours_back)
             
             for entry in feed.entries:  # 全件をチェック
                 try:
                     article = self._parse_rss_entry(entry, feed)
                     if article and article.url:  # URLが存在する記事のみ
-                        # 24時間以内の記事のみフィルタリング
+                        # 指定時間以内の記事のみフィルタリング
                         if article.published_date and article.published_date >= cutoff_time:
                             articles.append(article)
                         elif not article.published_date:
