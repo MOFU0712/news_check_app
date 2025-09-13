@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query'
 import { 
   BarChart3, TrendingUp, FileText, Calendar, 
   Tag, Globe, RefreshCw, Save, Edit, Trash2, Eye, Download, Archive,
-  Clock, Mail, Settings, Plus, Play, Pause
+  Clock, Mail, Settings, Plus, Play
 } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
@@ -255,7 +255,7 @@ const Reports: React.FC = () => {
   )
 
   // スケジュール一覧を取得
-  const { data: schedules, isLoading: schedulesLoading, refetch: refetchSchedules } = useQuery(
+  const { data: schedules, isLoading: schedulesLoading } = useQuery(
     'report-schedules',
     async () => {
       const response = await api.get<ReportSchedule[]>('/report-schedules')

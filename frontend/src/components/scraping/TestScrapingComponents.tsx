@@ -39,7 +39,7 @@ const mockScrapingJob = {
 
 export const TestScrapingComponents: React.FC = () => {
   const [currentView, setCurrentView] = useState<'input' | 'progress' | 'history'>('input');
-  const [parsedUrls, setParsedUrls] = useState(null);
+  const [parsedUrls, setParsedUrls] = useState<typeof mockParsedUrls | null>(null);
   const [showProgress, setShowProgress] = useState(false);
 
   // モック関数

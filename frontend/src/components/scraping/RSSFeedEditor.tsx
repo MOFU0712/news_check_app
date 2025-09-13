@@ -13,8 +13,7 @@ import {
   AlertTriangle,
   Loader2,
   ExternalLink,
-  Plus,
-  Trash2
+  Plus
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../contexts/AuthContext';

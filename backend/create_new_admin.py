@@ -30,7 +30,7 @@ def create_new_admin_user():
         
         # 新しい管理者ユーザーを作成
         admin_user = User(
-            id=uuid.uuid4(),
+            id=str(uuid.uuid4()),
             email=settings.FIRST_SUPERUSER_EMAIL,
             hashed_password=get_password_hash(settings.FIRST_SUPERUSER_PASSWORD),
             is_admin=True,

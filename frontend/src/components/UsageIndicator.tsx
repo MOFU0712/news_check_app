@@ -1,7 +1,7 @@
 import React from 'react'
 import { useQuery } from 'react-query'
 import { AlertCircle, CheckCircle, Clock } from 'lucide-react'
-import { usageApi, UsageInfo } from '../services/usageApi'
+import { usageApi } from '../services/usageApi'
 
 interface UsageIndicatorProps {
   actionType: string
