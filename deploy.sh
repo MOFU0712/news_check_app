@@ -68,7 +68,10 @@ fi
 
 if [ ! -f "$FRONTEND_DIR/.env" ]; then
     log_warning "Frontend .env file not found. Creating with default values..."
-    echo "VITE_API_BASE_URL=https://news-check-app.mofu-mofu-application.com/api" > $FRONTEND_DIR/.env
+    cat > $FRONTEND_DIR/.env << EOF
+VITE_API_BASE_URL=https://news-check-app.mofu-mofu-application.com/api
+VITE_RSS_FILE_PATH=/home/kanatsutsui/news_check_app/news_check_app/backend/rss_feeds.txt
+EOF
     log_success "Frontend .env file created"
 else
     log_success "Frontend .env file exists"

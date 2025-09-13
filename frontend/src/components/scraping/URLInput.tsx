@@ -76,7 +76,7 @@ export const URLInput: React.FC<URLInputProps> = ({
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          rss_file_path: '/Users/tsutsuikana/Desktop/coding_workspace/news_check_app/backend/rss_feeds.txt',
+          rss_file_path: (import.meta as any).env.VITE_RSS_FILE_PATH || '/Users/tsutsuikana/Desktop/coding_workspace/news_check_app/backend/rss_feeds.txt',
           include_arxiv: true,
           arxiv_categories: ['cs.AI', 'cs.LG', 'cs.CV'],
           arxiv_max_results: 50,

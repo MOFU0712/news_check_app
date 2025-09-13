@@ -47,7 +47,7 @@ interface JobStatus {
 export const RSSTestPanel: React.FC = () => {
   const { token } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [rssFilePath, setRssFilePath] = useState('/Users/tsutsuikana/Desktop/coding_workspace/news_check_app/backend/rss_feeds.txt');
+  const [rssFilePath, setRssFilePath] = useState((import.meta as any).env.VITE_RSS_FILE_PATH || '/Users/tsutsuikana/Desktop/coding_workspace/news_check_app/backend/rss_feeds.txt');
   const [includeArxiv, setIncludeArxiv] = useState(false);
   const [arxivCategories, setArxivCategories] = useState('cs.AI,cs.LG,cs.CV');
   const [arxivMaxResults, setArxivMaxResults] = useState(10);
