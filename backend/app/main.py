@@ -61,18 +61,21 @@ app = FastAPI(
     title="ITニュース管理システム",
     description="ITニュースの効率的な収集・管理・活用システム",
     version="1.0.0",
+    openapi_version="3.0.2",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
 )
 
-# CORS middleware - Development configuration
+# CORS middleware - Production and Development configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000", 
         "http://localhost:3001",
-        "http://127.0.0.1:3001"
+        "http://127.0.0.1:3001",
+        "https://news-check-app.mofu-mofu-application.com",
+        "https://www.news-check-app.mofu-mofu-application.com"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
