@@ -108,7 +108,6 @@ backend/notion_migration.py
 
 # CSV and HTML exports
 *.csv
-*.html
 backend/*.csv
 backend/*.html
 
